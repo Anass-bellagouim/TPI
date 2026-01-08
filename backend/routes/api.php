@@ -91,10 +91,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/employees', [EmployeeController::class, 'index']);
         Route::post('/employees', [EmployeeController::class, 'store']);
         Route::get('/employees/{user}', [EmployeeController::class, 'show']);
+
         Route::match(['put', 'patch'], '/employees/{user}', [EmployeeController::class, 'update']);
 
-        // reset to default 123456 + revoke tokens
-        Route::patch('/employees/{user}/password', [EmployeeController::class, 'updatePassword']);
+        /**
+         * ✅ Reset password to default "123456" + revoke tokens
+         * IMPORTANT: This endpoint must NOT accept password from client (no body needed).
+         *
+         * Frontend call:
+         *   PATCH /api/employees/{id}/password
+         */
+        Route::patch('/employees/{user}/password', [EmployeeController::class, 'resetPassword']);
 
         // toggle active + revoke tokens
         Route::patch('/employees/{user}/toggle-active', [EmployeeController::class, 'toggleActive']);

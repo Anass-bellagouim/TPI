@@ -27,16 +27,12 @@ class EmployeeController extends Controller
             });
         }
 
-        // تقدر تزيد filter role إذا بغيتي:
-        // if ($request->filled('role')) $q->where('role', $request->query('role'));
-
         $page = $q->orderByDesc('id')->paginate(20);
 
-        // باش نضمن full_name و is_active واضحين
         $page->getCollection()->transform(function (User $u) {
             return [
                 'id' => $u->id,
-                'full_name' => $u->name ?? trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')),
+                'full_name' => $u->name ?? remind_full_name($u),
                 'first_name' => $u->first_name,
                 'last_name' => $u->last_name,
                 'username' => $u->username,
@@ -56,18 +52,45 @@ class EmployeeController extends Controller
             'first_name' => ['required', 'string', 'max:255'],
             'last_name'  => ['required', 'string', 'max:255'],
             'username'   => ['required', 'string', 'max:255', 'unique:users,username'],
-            'email'      => ['required', 'email', 'max:255', 'unique:users,email'],
+
+            // ✅ email nullable globally, لكن admin لازم
+            'email'      => ['nullable', 'email', 'max:255', 'unique:users,email'],
+
             'role'       => ['required', Rule::in(['admin', 'user'])],
-            'password'   => ['required', 'string', 'min:6', 'confirmed'],
+
+            // ✅ مهم: نخلي password OPTIONAL هنا
+            // - admin: إذا بغيتيه required، كنفرضه تحت (منطق)
+            // - user: default 123456
+            'password'   => ['nullable', 'string', 'min:6', 'confirmed'],
+
             'is_active'  => ['sometimes', 'boolean'],
         ]);
+
+        // ✅ rules:
+        // admin لازم email + (اختياري لكن مستحسن) لازم password
+        if (($data['role'] ?? null) === 'admin') {
+            if (empty($data['email'])) {
+                return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
+            }
+            if (empty($data['password'])) {
+                return response()->json(['message' => 'كلمة المرور إجباريّة للـ admin.'], 422);
+            }
+        }
+
+        // user: ما عندوش email + password default 123456 (إلا ما تعطاتش)
+        if (($data['role'] ?? null) === 'user') {
+            $data['email'] = null;
+            if (empty($data['password'])) {
+                $data['password'] = '123456';
+            }
+        }
 
         $u = new User();
         $u->first_name = $data['first_name'];
         $u->last_name  = $data['last_name'];
-        $u->name       = trim($data['first_name'] . ' ' . $data['last_name']); // ✅ مهم
+        $u->name       = trim($data['first_name'] . ' ' . $data['last_name']);
         $u->username   = $data['username'];
-        $u->email      = $data['email'];
+        $u->email      = $data['email'] ?? null;
         $u->role       = $data['role'];
         $u->password   = Hash::make($data['password']);
         $u->is_active  = $data['is_active'] ?? true;
@@ -93,7 +116,7 @@ class EmployeeController extends Controller
     {
         return response()->json([
             'id' => $user->id,
-            'full_name' => $user->name ?? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+            'full_name' => $user->name ?? remind_full_name($user),
             'first_name' => $user->first_name,
             'last_name' => $user->last_name,
             'username' => $user->username,
@@ -110,7 +133,7 @@ class EmployeeController extends Controller
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name'  => ['sometimes', 'string', 'max:255'],
             'username'   => ['sometimes', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
-            'email'      => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'email'      => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role'       => ['sometimes', Rule::in(['admin', 'user'])],
             'is_active'  => ['sometimes', 'boolean'],
         ]);
@@ -118,11 +141,38 @@ class EmployeeController extends Controller
         if (array_key_exists('first_name', $data)) $user->first_name = $data['first_name'];
         if (array_key_exists('last_name', $data))  $user->last_name  = $data['last_name'];
         if (array_key_exists('username', $data))   $user->username   = $data['username'];
-        if (array_key_exists('email', $data))      $user->email      = $data['email'];
-        if (array_key_exists('role', $data))       $user->role       = $data['role'];
-        if (array_key_exists('is_active', $data))  $user->is_active  = (bool) $data['is_active'];
 
-        // ✅ keep "name" consistent
+        // role update
+        if (array_key_exists('role', $data)) {
+            $user->role = $data['role'];
+        }
+
+        /**
+         * ✅ email rules:
+         * - إذا role=admin => email لازم يكون موجود
+         * - إذا role=user  => email = null دائماً
+         */
+        if (($user->role ?? null) === 'user') {
+            // user ما كياخدش email نهائياً
+            $user->email = null;
+        } else {
+            // admin: إذا تصيفط email كنحدثوه، وإذا ما تصيفطش كنخليه كيفما هو
+            if (array_key_exists('email', $data)) {
+                if (empty($data['email'])) {
+                    return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
+                }
+                $user->email = $data['email'];
+            }
+
+            // ✅ مهم: إلا تبدّل role ل admin وما عندوش email أصلاً => نرفض
+            if (empty($user->email)) {
+                return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
+            }
+        }
+
+        if (array_key_exists('is_active', $data)) $user->is_active = (bool) $data['is_active'];
+
+        // keep name consistent
         $user->name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
 
         $user->save();
@@ -142,21 +192,30 @@ class EmployeeController extends Controller
         ]);
     }
 
-    // PATCH /api/employees/{user}/password (reset + revoke tokens)
+    /**
+     * PATCH /api/employees/{user}/password
+     * ✅ Reset default password = "123456" + revoke tokens
+     * IMPORTANT: ما كنقبلو حتى password من client
+     */
     public function resetPassword(Request $request, User $user)
     {
-        $data = $request->validate([
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
-        ]);
+        // اختياري: ما تخليش reset على admin من هنا
+        if ($user->role === 'admin') {
+            return response()->json([
+                'message' => 'لا يمكن إعادة تعيين كلمة مرور admin من هنا.',
+            ], 403);
+        }
 
-        $user->password = Hash::make($data['password']);
+        $defaultPassword = '123456';
+
+        $user->password = Hash::make($defaultPassword);
         $user->save();
 
         // revoke all tokens
         $user->tokens()->delete();
 
         return response()->json([
-            'message' => 'تم تغيير كلمة المرور وسحب التوكنز القديمة',
+            'message' => 'تمت إعادة تعيين كلمة المرور إلى 123456 وتم سحب التوكنز القديمة.',
         ]);
     }
 
@@ -194,16 +253,16 @@ class EmployeeController extends Controller
     // DELETE /api/employees/{user}
     public function destroy(User $user)
     {
-        // revoke tokens
         $user->tokens()->delete();
-
         $user->delete();
 
         return response()->json(['message' => 'تم حذف الموظف بنجاح']);
     }
 }
 
-// Helper صغيرة باش ما نكرّروش trim (اختياري)
+/**
+ * Helper صغيرة باش ما نكرّروش trim
+ */
 if (!function_exists('remind_full_name')) {
     function remind_full_name(User $u): string
     {

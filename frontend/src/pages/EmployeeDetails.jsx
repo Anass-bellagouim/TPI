@@ -8,7 +8,7 @@ export default function EmployeeDetails() {
 
   const [loading, setLoading] = useState(false);
   const [loadingToggle, setLoadingToggle] = useState(false);
-  const [loadingPwd, setLoadingPwd] = useState(false);
+  const [loadingReset, setLoadingReset] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
   const [employee, setEmployee] = useState(null);
@@ -23,10 +23,7 @@ export default function EmployeeDetails() {
     role: "user",
   });
 
-  const [pwd, setPwd] = useState({
-    password: "",
-    password_confirmation: "",
-  });
+  const busy = loading || loadingToggle || loadingReset || loadingDelete;
 
   const fullName = useMemo(() => {
     const fn = employee?.first_name || "";
@@ -35,9 +32,13 @@ export default function EmployeeDetails() {
     return employee?.full_name || built || employee?.username || "";
   }, [employee]);
 
-  async function fetchEmployee() {
+  function clearMsgs() {
     setError("");
     setInfo("");
+  }
+
+  async function fetchEmployee() {
+    clearMsgs();
     try {
       setLoading(true);
       const res = await api.get(`/employees/${id}`);
@@ -52,7 +53,13 @@ export default function EmployeeDetails() {
         role: u?.role || "user",
       });
     } catch (e) {
-      setError(e?.response?.data?.message || "وقع خطأ أثناء جلب بيانات الموظف.");
+      const status = e?.response?.status;
+      if (status === 404) {
+        setEmployee(null);
+        setError("الموظف غير موجود (404).");
+      } else {
+        setError(e?.response?.data?.message || "وقع خطأ أثناء جلب بيانات الموظف.");
+      }
     } finally {
       setLoading(false);
     }
@@ -60,8 +67,7 @@ export default function EmployeeDetails() {
 
   async function onUpdate(e) {
     e.preventDefault();
-    setError("");
-    setInfo("");
+    clearMsgs();
 
     try {
       setLoading(true);
@@ -70,7 +76,7 @@ export default function EmployeeDetails() {
         first_name: form.first_name?.trim() || "",
         last_name: form.last_name?.trim() || "",
         username: form.username?.trim() || "",
-        email: form.email?.trim() || "",
+        email: form.email?.trim() ? form.email.trim() : null,
         role: form.role || "user",
       };
 
@@ -81,18 +87,14 @@ export default function EmployeeDetails() {
       setInfo("تم تحديث معلومات الموظف بنجاح.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
-      setError(
-        e?.response?.data?.message || "وقع خطأ أثناء تحديث معلومات الموظف."
-      );
+      setError(e?.response?.data?.message || "وقع خطأ أثناء تحديث معلومات الموظف.");
     } finally {
       setLoading(false);
     }
   }
 
   async function toggleActive() {
-    setError("");
-    setInfo("");
-
+    clearMsgs();
     if (!employee) return;
 
     const ok = window.confirm(
@@ -108,7 +110,7 @@ export default function EmployeeDetails() {
       const updated = res.data?.data || res.data;
 
       setEmployee(updated);
-      setInfo(res.data?.message || "تم تحديث حالة الحساب.");
+      setInfo(res.data?.message || "تم تحديث حالة الحساب (وتم سحب التوكنز).");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setError(e?.response?.data?.message || "فشل تغيير حالة الحساب.");
@@ -117,43 +119,35 @@ export default function EmployeeDetails() {
     }
   }
 
-  async function onResetPassword(e) {
-    e.preventDefault();
-    setError("");
-    setInfo("");
+  async function resetPasswordDefault() {
+    clearMsgs();
+    if (!employee) return;
 
-    if (!pwd.password || pwd.password.length < 6) {
-      setError("كلمة المرور خاصها تكون 6 حروف على الأقل.");
-      return;
-    }
-    if (pwd.password !== pwd.password_confirmation) {
-      setError("تأكيد كلمة المرور ما مطابقاش.");
-      return;
-    }
+    const ok = window.confirm(
+      'واش متأكد بغيتي ترجع كلمة المرور الافتراضية "123456"؟ (غادي يتحيدو جميع sessions ديال الموظف)'
+    );
+    if (!ok) return;
 
     try {
-      setLoadingPwd(true);
+      setLoadingReset(true);
 
-      await api.patch(`/employees/${id}/password`, {
-        password: pwd.password,
-        password_confirmation: pwd.password_confirmation,
-      });
+      // ✅ بلا body نهائياً
+      const res = await api.patch(`/employees/${id}/password`);
 
-      setPwd({ password: "", password_confirmation: "" });
-      setInfo("تم تغيير كلمة المرور بنجاح وتم سحب التوكنز القديمة.");
+      setInfo(
+        res.data?.message ||
+          'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب التوكنز القديمة بنجاح.'
+      );
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
-      setError(
-        e?.response?.data?.message || "وقع خطأ أثناء تغيير كلمة المرور."
-      );
+      setError(e?.response?.data?.message || "وقع خطأ أثناء إعادة تعيين كلمة المرور.");
     } finally {
-      setLoadingPwd(false);
+      setLoadingReset(false);
     }
   }
 
   async function onDelete() {
-    setError("");
-    setInfo("");
+    clearMsgs();
 
     const ok = window.confirm("واش متأكد بغيتي تحذف هاد الموظف نهائياً؟");
     if (!ok) return;
@@ -174,23 +168,13 @@ export default function EmployeeDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // إذا جا من link فيه #password
-  useEffect(() => {
-    if (window.location.hash === "#password") {
-      setTimeout(() => {
-        const el = document.getElementById("password");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 120);
-    }
-  }, []);
-
   return (
     <div>
       <div className="pageHeader">
         <div>
           <h2>تعديل موظف</h2>
           <p style={{ marginTop: 6 }}>
-            {loading && !employee ? "..." : `الموظف: ${fullName}`}
+            {loading && !employee ? "..." : employee ? `الموظف: ${fullName}` : "—"}
           </p>
         </div>
 
@@ -198,6 +182,16 @@ export default function EmployeeDetails() {
           <Link className="btn btnSecondary" to="/employees">
             رجوع للائحة
           </Link>
+
+          <button
+            className="btn btnSecondary"
+            type="button"
+            onClick={fetchEmployee}
+            disabled={busy}
+            title="إعادة تحميل"
+          >
+            {busy ? "..." : "إعادة تحميل"}
+          </button>
         </div>
       </div>
 
@@ -210,6 +204,19 @@ export default function EmployeeDetails() {
       {error && (
         <div className="alert alertError card" style={{ marginBottom: 14 }}>
           <strong>خطأ:</strong> {error}
+        </div>
+      )}
+
+      {/* إذا الموظف ما كاينش */}
+      {!employee && !loading && (
+        <div className="card">
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>الموظف غير موجود</div>
+          <div className="help" style={{ marginBottom: 12 }}>
+            ممكن يكون تحذف أو الرابط غير صحيح.
+          </div>
+          <Link className="btn btnPrimary" to="/employees">
+            رجوع للائحة الموظفين
+          </Link>
         </div>
       )}
 
@@ -242,8 +249,8 @@ export default function EmployeeDetails() {
                 className={`btn ${employee.is_active ? "btnDanger" : "btnPrimary"}`}
                 type="button"
                 onClick={toggleActive}
-                disabled={loadingToggle}
-                title="توقيف/تفعيل الحساب"
+                disabled={busy}
+                title="توقيف/تفعيل الحساب (مع سحب التوكنز)"
               >
                 {loadingToggle
                   ? "..."
@@ -257,154 +264,111 @@ export default function EmployeeDetails() {
       )}
 
       {/* Update */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ marginBottom: 10, fontWeight: 700 }}>معلومات الموظف</div>
+      {employee && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 10, fontWeight: 700 }}>معلومات الموظف</div>
 
-        <form onSubmit={onUpdate}>
-          <div className="grid2">
-            <div className="field">
-              <div className="label">الاسم الشخصي</div>
-              <input
-                className="input"
-                value={form.first_name}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, first_name: e.target.value }))
-                }
-                disabled={loading}
-              />
+          <form onSubmit={onUpdate}>
+            <div className="grid2">
+              <div className="field">
+                <div className="label">الاسم الشخصي</div>
+                <input
+                  className="input"
+                  value={form.first_name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, first_name: e.target.value }))
+                  }
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">الاسم العائلي</div>
+                <input
+                  className="input"
+                  value={form.last_name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, last_name: e.target.value }))
+                  }
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">Username</div>
+                <input
+                  className="input"
+                  value={form.username}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, username: e.target.value }))
+                  }
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">Email</div>
+                <input
+                  className="input"
+                  value={form.email || ""}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, email: e.target.value }))
+                  }
+                  disabled={busy}
+                />
+                <div className="help">اختياري (غالباً للـ admin فقط)</div>
+              </div>
+
+              <div className="field">
+                <div className="label">Role</div>
+                <select
+                  className="select"
+                  value={form.role}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, role: e.target.value }))
+                  }
+                  disabled={busy}
+                >
+                  <option value="admin">admin</option>
+                  <option value="user">user</option>
+                </select>
+              </div>
             </div>
 
-            <div className="field">
-              <div className="label">الاسم العائلي</div>
-              <input
-                className="input"
-                value={form.last_name}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, last_name: e.target.value }))
-                }
-                disabled={loading}
-              />
-            </div>
+            <div className="rowActions" style={{ marginTop: 12 }}>
+              <button className="btn btnPrimary" type="submit" disabled={busy}>
+                {loading ? "..." : "حفظ التعديلات"}
+              </button>
 
-            <div className="field">
-              <div className="label">Username</div>
-              <input
-                className="input"
-                value={form.username}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, username: e.target.value }))
-                }
-                disabled={loading}
-              />
-            </div>
-
-            <div className="field">
-              <div className="label">Email</div>
-              <input
-                className="input"
-                value={form.email}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, email: e.target.value }))
-                }
-                disabled={loading}
-              />
-            </div>
-
-            <div className="field">
-              <div className="label">Role</div>
-              <select
-                className="select"
-                value={form.role}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, role: e.target.value }))
-                }
-                disabled={loading}
+              <button
+                className="btn btnSecondary"
+                type="button"
+                onClick={resetPasswordDefault}
+                disabled={busy}
+                title='Reset password to "123456" + revoke tokens'
               >
-                <option value="admin">admin</option>
-                <option value="user">user</option>
-              </select>
-            </div>
-          </div>
+                {loadingReset ? "..." : "Reset Password (123456)"}
+              </button>
 
-          <div className="rowActions" style={{ marginTop: 12 }}>
-            <button className="btn btnPrimary" type="submit" disabled={loading}>
-              {loading ? "..." : "حفظ التعديلات"}
-            </button>
-
-            <Link className="btn btnSecondary" to={`/employees/${id}#password`}>
-              تغيير كلمة المرور
-            </Link>
-
-            <button
-              className="btn btnDanger"
-              type="button"
-              onClick={onDelete}
-              disabled={loadingDelete || loading}
-              style={{ marginInlineStart: "auto" }}
-              title="حذف الموظف"
-            >
-              {loadingDelete ? "..." : "حذف"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Password */}
-      <div className="card" id="password">
-        <div style={{ marginBottom: 10, fontWeight: 700 }}>تغيير كلمة المرور</div>
-
-        <form onSubmit={onResetPassword}>
-          <div className="grid2">
-            <div className="field">
-              <div className="label">كلمة المرور الجديدة</div>
-              <input
-                className="input"
-                type="password"
-                value={pwd.password}
-                onChange={(e) =>
-                  setPwd((p) => ({ ...p, password: e.target.value }))
-                }
-                disabled={loadingPwd}
-              />
+              <button
+                className="btn btnDanger"
+                type="button"
+                onClick={onDelete}
+                disabled={busy}
+                style={{ marginInlineStart: "auto" }}
+                title="حذف الموظف"
+              >
+                {loadingDelete ? "..." : "حذف"}
+              </button>
             </div>
 
-            <div className="field">
-              <div className="label">تأكيد كلمة المرور</div>
-              <input
-                className="input"
-                type="password"
-                value={pwd.password_confirmation}
-                onChange={(e) =>
-                  setPwd((p) => ({
-                    ...p,
-                    password_confirmation: e.target.value,
-                  }))
-                }
-                disabled={loadingPwd}
-              />
+            <div className="help" style={{ marginTop: 10 }}>
+              ملاحظة: Reset Password كيرجع كلمة المرور لـ <strong>123456</strong> وكيحيد جميع
+              التوكنز باش الموظف يعاود يدير login.
             </div>
-          </div>
-
-          <div className="rowActions" style={{ marginTop: 12 }}>
-            <button className="btn btnPrimary" type="submit" disabled={loadingPwd}>
-              {loadingPwd ? "..." : "تغيير كلمة المرور"}
-            </button>
-
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={loadingPwd}
-              onClick={() => setPwd({ password: "", password_confirmation: "" })}
-            >
-              مسح
-            </button>
-          </div>
-
-          <div className="help" style={{ marginTop: 10 }}>
-            ملاحظة: تغيير كلمة المرور كيسحب التوكنز القديمة باش الموظف يعاود يسجّل الدخول.
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

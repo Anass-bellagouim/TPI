@@ -6,7 +6,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-// ✅ زِد هاد السطر
 use App\Notifications\ResetPasswordNotification;
 
 class User extends Authenticatable
@@ -21,7 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'is_active', // ✅ إذا عندك فـ DB (مستحسن يكون هنا)
+        'is_active',
     ];
 
     protected $hidden = [
@@ -30,11 +29,11 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'is_active' => 'boolean', // ✅ إذا موجودة
+        'is_active' => 'boolean',
+        // 'email_verified_at' => 'datetime', // خليه غير إلا كان فالـ DB
     ];
 
-    // ✅ full_name accessor
+    // full_name accessor
     public function getFullNameAttribute(): string
     {
         $fn = trim((string)($this->first_name ?? ''));
@@ -43,7 +42,6 @@ class User extends Authenticatable
         $full = trim($fn . ' ' . $ln);
         if ($full !== '') return $full;
 
-        // fallback للبيانات القديمة
         return (string)($this->name ?? '');
     }
 
@@ -53,9 +51,8 @@ class User extends Authenticatable
     }
 
     /**
-     * ✅ Override reset password notification
-     * باش Laravel ما يبقاش كيحتاج Route [password.reset]
-     * وغادي يرسل رابط Frontend مباشرة.
+     * Override reset password notification:
+     * كيسيفط رابط Frontend مباشرة (ما كيحتاجش route password.reset ديال Laravel)
      */
     public function sendPasswordResetNotification($token): void
     {
