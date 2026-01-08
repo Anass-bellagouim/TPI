@@ -1,13 +1,19 @@
-import React, { useContext, useMemo, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useContext, useMemo, useState, useEffect } from "react";
+import { NavLink, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "../auth/AuthContext.jsx";
 
-export default function AppShell({ children }) {
+export default function AppShell() {
   const nav = useNavigate();
+  const location = useLocation();
   const auth = useContext(AuthContext);
   const user = auth?.user;
 
   const [open, setOpen] = useState(false);
+
+  // سُدّ المينو ملي كتبدّل الصفحة
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
 
   const linkClass = ({ isActive }) => `navlink ${isActive ? "navlink--active" : ""}`;
 
@@ -19,7 +25,7 @@ export default function AppShell({ children }) {
   async function onLogout() {
     setOpen(false);
     await auth?.logout?.();
-    nav("/login");
+    nav("/login", { replace: true });
   }
 
   return (
@@ -27,7 +33,7 @@ export default function AppShell({ children }) {
       <header className="navbar">
         <div className="navbar__inner">
           {/* RIGHT: logo + title */}
-          <div className="brand">
+          <div className="brand" role="button" tabIndex={0} onClick={() => nav("/search")}>
             <div className="brand__badge">م</div>
             <div className="brand__titles">
               <h1>نظام إدارة وثائق المحكمة الابتدائية المغربية</h1>
@@ -68,26 +74,52 @@ export default function AppShell({ children }) {
                 <div className="userName">{displayName}</div>
                 <div className="userRole">{user?.role || "guest"}</div>
               </div>
-              <span className="chev" aria-hidden="true">▾</span>
+              <span className="chev" aria-hidden="true">
+                ▾
+              </span>
             </button>
 
             {open && (
               <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
-                <button className="menuItem" onClick={() => { setOpen(false); nav("/search"); }}>
+                <button
+                  className="menuItem"
+                  onClick={() => {
+                    setOpen(false);
+                    nav("/search");
+                  }}
+                >
                   الوثائق (بحث متقدم)
                 </button>
 
-                <button className="menuItem" onClick={() => { setOpen(false); nav("/add"); }}>
+                <button
+                  className="menuItem"
+                  onClick={() => {
+                    setOpen(false);
+                    nav("/add");
+                  }}
+                >
                   إضافة وثيقة
                 </button>
 
                 {user?.role === "admin" && (
                   <>
                     <div className="menuSep" />
-                    <button className="menuItem" onClick={() => { setOpen(false); nav("/employees"); }}>
+                    <button
+                      className="menuItem"
+                      onClick={() => {
+                        setOpen(false);
+                        nav("/employees");
+                      }}
+                    >
                       الموظفون (بحث + لائحة)
                     </button>
-                    <button className="menuItem" onClick={() => { setOpen(false); nav("/employees/add"); }}>
+                    <button
+                      className="menuItem"
+                      onClick={() => {
+                        setOpen(false);
+                        nav("/employees/add");
+                      }}
+                    >
                       إضافة موظف
                     </button>
                   </>
@@ -95,7 +127,13 @@ export default function AppShell({ children }) {
 
                 <div className="menuSep" />
 
-                <button className="menuItem" onClick={() => { setOpen(false); nav("/change-password"); }}>
+                <button
+                  className="menuItem"
+                  onClick={() => {
+                    setOpen(false);
+                    nav("/change-password");
+                  }}
+                >
                   تغيير كلمة المرور
                 </button>
 
@@ -108,7 +146,10 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      <main className="container">{children}</main>
+      {/* ✅ هنا هو المهم: pages غادي يخرجو عبر Outlet */}
+      <main className="container">
+        <Outlet />
+      </main>
     </div>
   );
 }

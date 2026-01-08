@@ -1,25 +1,17 @@
 import React, { useContext } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { AuthContext } from "./AuthContext.jsx";
 
-export default function RequireAdmin({ children }) {
-  const { user, loading } = useContext(AuthContext);
+export default function RequireAdmin() {
+  const { user, isLoading } = useContext(AuthContext);
 
-  if (loading) {
-    return (
-      <div className="card">
-        <div className="alert alertInfo">جاري التحقق من الصلاحيات...</div>
-      </div>
-    );
+  if (isLoading) {
+    return <div style={{ padding: 20 }}>التحقق من الصلاحيات...</div>;
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== "admin")
-    return (
-      <div className="card">
-        <div className="alert alertError">لا تملك صلاحية الدخول لهذه الصفحة.</div>
-      </div>
-    );
+  if (user?.role !== "admin") {
+    return <Navigate to="/search" replace />;
+  }
 
-  return children;
+  return <Outlet />;
 }

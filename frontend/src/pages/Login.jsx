@@ -1,9 +1,10 @@
 import React, { useContext, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../auth/AuthContext.jsx";
 
 export default function Login() {
   const nav = useNavigate();
+  const location = useLocation();
   const auth = useContext(AuthContext);
 
   const [identifier, setIdentifier] = useState("admin");
@@ -11,16 +12,24 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ يرجّعك للي كنت غادي ليه قبل ما يدخلك للـ login
+  const from = location.state?.from?.pathname || "/search";
+
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
     setLoading(true);
 
     try {
-      await auth.login(identifier, password);
-      nav("/search", { replace: true });
+      // ✅ التصحيح الأساسي: login كيتسنى object
+      await auth.login({ identifier, password });
+
+      nav(from, { replace: true });
     } catch (ex) {
-      setErr(ex?.response?.data?.message || "فشل تسجيل الدخول");
+      const msg =
+        ex?.response?.data?.message ||
+        (ex?.response?.status === 401 ? "بيانات الدخول غير صحيحة" : "فشل تسجيل الدخول");
+      setErr(msg);
     } finally {
       setLoading(false);
     }
@@ -30,6 +39,7 @@ export default function Login() {
     <div className="authWrap">
       <div className="card authCard">
         <h2>تسجيل الدخول</h2>
+
         {err && <div className="alert alertError">{err}</div>}
 
         <form onSubmit={submit} className="form">
@@ -56,8 +66,8 @@ export default function Login() {
             />
           </div>
 
-          <button className="btn btnPrimary" type="submit" disabled={loading}>
-            {loading ? "..." : "دخول"}
+          <button className="btn btnPrimary" type="submit" disabled={loading || auth?.isLoading}>
+            {loading || auth?.isLoading ? "..." : "دخول"}
           </button>
 
           <div className="help">

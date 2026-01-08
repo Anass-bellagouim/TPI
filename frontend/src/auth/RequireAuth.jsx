@@ -1,22 +1,21 @@
 import React, { useContext } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "./AuthContext.jsx";
 
-export default function RequireAuth({ children }) {
-  const { user, loading } = useContext(AuthContext);
-  const loc = useLocation();
+export default function RequireAuth() {
+  const { user, token, isLoading } = useContext(AuthContext);
+  const location = useLocation();
 
-  if (loading) {
-    return (
-      <div className="card">
-        <div className="alert alertInfo">جاري التحقق من تسجيل الدخول...</div>
-      </div>
-    );
+  // ⏳ مهم جداً
+  if (isLoading) {
+    return <div style={{ padding: 20 }}>جاري التحقق من الجلسة...</div>;
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  // ❌ ما مسجلش
+  if (!token || !user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return children;
+  // ✅ مسجل
+  return <Outlet />;
 }
