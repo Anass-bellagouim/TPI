@@ -6,7 +6,8 @@ export default function AppShell() {
   const nav = useNavigate();
   const location = useLocation();
   const auth = useContext(AuthContext);
-  const user = auth?.user;
+
+  const user = auth?.user || null;
 
   const [open, setOpen] = useState(false);
 
@@ -19,13 +20,18 @@ export default function AppShell() {
 
   const displayName = useMemo(() => {
     if (!user) return "غير مسجل";
-    return user.full_name || user.username || user.email;
+    // AuthController كيرجع first_name/last_name غالباً
+    const full = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    return full || user.full_name || user.username || user.email || "مستخدم";
   }, [user]);
 
   async function onLogout() {
     setOpen(false);
-    await auth?.logout?.();
-    nav("/login", { replace: true });
+    try {
+      await auth?.logout?.();
+    } finally {
+      nav("/login", { replace: true });
+    }
   }
 
   return (
@@ -33,7 +39,15 @@ export default function AppShell() {
       <header className="navbar">
         <div className="navbar__inner">
           {/* RIGHT: logo + title */}
-          <div className="brand" role="button" tabIndex={0} onClick={() => nav("/search")}>
+          <div
+            className="brand"
+            role="button"
+            tabIndex={0}
+            onClick={() => nav("/search")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") nav("/search");
+            }}
+          >
             <div className="brand__badge">م</div>
             <div className="brand__titles">
               <h1>نظام إدارة وثائق المحكمة الابتدائية المغربية</h1>
@@ -81,72 +95,91 @@ export default function AppShell() {
 
             {open && (
               <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
-                <button
-                  className="menuItem"
-                  onClick={() => {
-                    setOpen(false);
-                    nav("/search");
-                  }}
-                >
-                  الوثائق (بحث متقدم)
-                </button>
-
-                <button
-                  className="menuItem"
-                  onClick={() => {
-                    setOpen(false);
-                    nav("/add");
-                  }}
-                >
-                  إضافة وثيقة
-                </button>
-
-                {user?.role === "admin" && (
+                {/* إذا ما مسجلش الدخول، غير خليه يرجع login */}
+                {!user && (
                   <>
-                    <div className="menuSep" />
                     <button
                       className="menuItem"
                       onClick={() => {
                         setOpen(false);
-                        nav("/employees");
+                        nav("/login");
                       }}
                     >
-                      الموظفون (بحث + لائحة)
-                    </button>
-                    <button
-                      className="menuItem"
-                      onClick={() => {
-                        setOpen(false);
-                        nav("/employees/add");
-                      }}
-                    >
-                      إضافة موظف
+                      تسجيل الدخول
                     </button>
                   </>
                 )}
 
-                <div className="menuSep" />
+                {!!user && (
+                  <>
+                    <button
+                      className="menuItem"
+                      onClick={() => {
+                        setOpen(false);
+                        nav("/search");
+                      }}
+                    >
+                      الوثائق (بحث متقدم)
+                    </button>
 
-                <button
-                  className="menuItem"
-                  onClick={() => {
-                    setOpen(false);
-                    nav("/change-password");
-                  }}
-                >
-                  تغيير كلمة المرور
-                </button>
+                    <button
+                      className="menuItem"
+                      onClick={() => {
+                        setOpen(false);
+                        nav("/add");
+                      }}
+                    >
+                      إضافة وثيقة
+                    </button>
 
-                <button className="menuItem danger" onClick={onLogout}>
-                  تسجيل الخروج
-                </button>
+                    {user?.role === "admin" && (
+                      <>
+                        <div className="menuSep" />
+                        <button
+                          className="menuItem"
+                          onClick={() => {
+                            setOpen(false);
+                            nav("/employees");
+                          }}
+                        >
+                          الموظفون (بحث + لائحة)
+                        </button>
+                        <button
+                          className="menuItem"
+                          onClick={() => {
+                            setOpen(false);
+                            nav("/employees/add");
+                          }}
+                        >
+                          إضافة موظف
+                        </button>
+                      </>
+                    )}
+
+                    <div className="menuSep" />
+
+                    <button
+                      className="menuItem"
+                      onClick={() => {
+                        setOpen(false);
+                        nav("/change-password");
+                      }}
+                    >
+                      تغيير كلمة المرور
+                    </button>
+
+                    <button className="menuItem danger" onClick={onLogout}>
+                      تسجيل الخروج
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* ✅ هنا هو المهم: pages غادي يخرجو عبر Outlet */}
+      {/* ✅ Pages كيتعرضو هنا */}
       <main className="container">
         <Outlet />
       </main>

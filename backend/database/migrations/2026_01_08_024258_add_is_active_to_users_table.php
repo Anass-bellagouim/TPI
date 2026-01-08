@@ -8,15 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('is_active')->default(true)->after('role');
-        });
+        // ✅ already added in previous migration (no-op)
+        if (!Schema::hasColumn('users', 'is_active')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->boolean('is_active')->default(true)->after('role');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('is_active');
-        });
+        if (Schema::hasColumn('users', 'is_active')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('is_active');
+            });
+        }
     }
 };

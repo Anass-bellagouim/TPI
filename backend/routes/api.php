@@ -18,19 +18,37 @@ Route::get('/ping', [PingController::class, 'ping']);
 
 /*
 |--------------------------------------------------------------------------
-| Auth
+| Auth (Public)
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
+
+    // Login (username أو email)
     Route::post('/login', [AuthController::class, 'login']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Forgot Password flow (PUBLIC)
+    |--------------------------------------------------------------------------
+    */
+
+    // ✅ check username/email → role
+    Route::post('/forgot-password/check', [AuthController::class, 'forgotPasswordCheck']);
+
+    // 🔒 send reset link (ADMIN ONLY logic inside controller)
     Route::post('/forgot-password', [PasswordController::class, 'forgot']);
+
+    // 🔒 reset password via token (ADMIN ONLY)
     Route::post('/reset-password', [PasswordController::class, 'reset']);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Authenticated user
+    |--------------------------------------------------------------------------
+    */
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
-
-        // تغيير كلمة المرور ديال المستخدم الحالي
         Route::patch('/change-password', [AuthController::class, 'changePassword']);
     });
 });
@@ -70,20 +88,15 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('admin')->group(function () {
 
-        // List employees (search عبر ?search=)
         Route::get('/employees', [EmployeeController::class, 'index']);
-
-        // Create
         Route::post('/employees', [EmployeeController::class, 'store']);
-
-        // Show / Update / Delete
         Route::get('/employees/{user}', [EmployeeController::class, 'show']);
         Route::match(['put', 'patch'], '/employees/{user}', [EmployeeController::class, 'update']);
 
-        // Reset/Update password + revoke tokens
+        // reset to default 123456 + revoke tokens
         Route::patch('/employees/{user}/password', [EmployeeController::class, 'updatePassword']);
 
-        // ✅ NEW: Toggle active/blocked + revoke tokens
+        // toggle active + revoke tokens
         Route::patch('/employees/{user}/toggle-active', [EmployeeController::class, 'toggleActive']);
 
         Route::delete('/employees/{user}', [EmployeeController::class, 'destroy']);

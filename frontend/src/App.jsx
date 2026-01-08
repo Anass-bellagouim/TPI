@@ -24,24 +24,27 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* ================== LAYOUT ================== */}
+        {/* ✅ TEST (اختياري) */}
+        <Route path="/__test" element={<div style={{ padding: 40 }}>OK TEST</div>} />
+
+        {/* ✅ PUBLIC ROUTES (برا AppShell وبرا guards) */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* ✅ APP ROUTES (داخل AppShell + guards) */}
         <Route element={<AppShell />}>
-          {/* Redirect root */}
+          {/* Root */}
           <Route path="/" element={<Navigate to="/search" replace />} />
 
-          {/* =============== PUBLIC ROUTES =============== */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-
-          {/* ============ AUTHENTICATED ROUTES ============ */}
+          {/* Authenticated */}
           <Route element={<RequireAuth />}>
             <Route path="/search" element={<SearchDocuments />} />
             <Route path="/add" element={<AddDocument />} />
             <Route path="/documents/:id" element={<DocumentDetails />} />
             <Route path="/change-password" element={<ChangePassword />} />
 
-            {/* ============== ADMIN ONLY ============== */}
+            {/* Admin only */}
             <Route element={<RequireAdmin />}>
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/add" element={<AddEmployee />} />
@@ -49,9 +52,12 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* Fallback */}
+          {/* Fallback داخل AppShell */}
           <Route path="*" element={<Navigate to="/search" replace />} />
         </Route>
+
+        {/* Fallback عام */}
+        <Route path="*" element={<Navigate to="/search" replace />} />
       </Routes>
     </AuthProvider>
   );

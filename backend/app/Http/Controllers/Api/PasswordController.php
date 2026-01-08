@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
+use App\Models\User;
 
 class PasswordController extends Controller
 {
     /**
      * POST /api/auth/forgot-password
-     * body: { "email": "user@example.com" }
+     * body: { "email": "admin@gmail.com" }
+     * ✅ ADMIN ONLY (التحقق داخل controller)
      */
     public function forgot(Request $request)
     {
@@ -20,42 +21,71 @@ class PasswordController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $email = trim((string) $request->email);
+
+        $user = User::where('email', $email)->first();
+
+        // 🔒 فقط admin يقدر يستعمل الإيميل reset
+        if (!$user || $user->role !== 'admin') {
+            return response()->json([
+                'message' => 'استرجاع كلمة المرور عبر البريد الإلكتروني متاح للإدارة فقط. المرجو التواصل مع الإدارة.'
+            ], 403);
+        }
+
+        $status = Password::sendResetLink(['email' => $email]);
 
         if ($status === Password::RESET_LINK_SENT) {
             return response()->json([
-                'message' => __($status),
+                'message' => 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني'
             ]);
         }
 
+        // throttle / other errors
+        $code = ($status === Password::RESET_THROTTLED) ? 429 : 422;
+
         return response()->json([
             'message' => __($status),
-        ], 422);
+        ], $code);
     }
 
     /**
      * POST /api/auth/reset-password
-     * body: { "email": "...", "token": "...", "password": "...", "password_confirmation": "..." }
+     * body: { token, email, password, password_confirmation }
+     * ✅ ADMIN ONLY (يتأكد من email ديال admin)
      */
     public function reset(Request $request)
     {
         $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
+        $email = trim((string) $request->email);
+
+        $user = User::where('email', $email)->first();
+
+        // 🔒 فقط admin
+        if (!$user || $user->role !== 'admin') {
+            return response()->json([
+                'message' => 'إعادة تعيين كلمة المرور عبر البريد الإلكتروني متاحة للإدارة فقط.'
+            ], 403);
+        }
+
         $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
+            [
+                'email'                 => $email,
+                'password'              => $request->password,
+                'password_confirmation' => $request->password_confirmation,
+                'token'                 => $request->token,
+            ],
             function ($user) use ($request) {
+                // ✅ ما كنحتاجوش remember_token حيث DB ما فيهش وسانكتوم كافي
                 $user->forceFill([
                     'password' => Hash::make($request->password),
-                    'remember_token' => Str::random(60),
                 ])->save();
 
-                // إلا كنت باغي تمسح tokens ديال Sanctum ملي كيتبدّل password:
+                // ✅ revoke sanctum tokens (أمنياً)
                 if (method_exists($user, 'tokens')) {
                     $user->tokens()->delete();
                 }
@@ -64,7 +94,7 @@ class PasswordController extends Controller
 
         if ($status === Password::PASSWORD_RESET) {
             return response()->json([
-                'message' => __($status),
+                'message' => 'تم تغيير كلمة المرور بنجاح'
             ]);
         }
 

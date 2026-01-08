@@ -1,70 +1,121 @@
-import React, { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api.js";
 
 export default function ResetPassword() {
-  const [params] = useSearchParams();
   const nav = useNavigate();
+  const [params] = useSearchParams();
 
-  const [email, setEmail] = useState(params.get("email") || "");
-  const [token, setToken] = useState(params.get("token") || "");
+  const token = useMemo(() => params.get("token") || "", [params]);
+  const email = useMemo(() => params.get("email") || "", [params]);
+
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [msg, setMsg] = useState("");
+
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  const canSubmit =
+    token &&
+    email &&
+    password.length >= 6 &&
+    passwordConfirmation.length >= 6 &&
+    password === passwordConfirmation;
 
   const submit = async (e) => {
     e.preventDefault();
-    setErr(""); setMsg("");
+    setErr("");
+    setOk("");
 
-    if (!email.trim()) return setErr("البريد مطلوب.");
-    if (!token.trim()) return setErr("Token مطلوب.");
-    if (!password) return setErr("كلمة المرور مطلوبة.");
-    if (password !== passwordConfirmation) return setErr("تأكيد كلمة المرور غير مطابق.");
+    if (!token || !email) {
+      setErr("الرابط غير صالح: token أو email ناقص");
+      return;
+    }
 
+    if (password !== passwordConfirmation) {
+      setErr("كلمتا المرور غير متطابقتين");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const res = await api.post("/auth/reset-password", {
-        email: email.trim(),
-        token: token.trim(),
+      await api.post("/auth/reset-password", {
+        token,
+        email,
         password,
         password_confirmation: passwordConfirmation,
       });
-      setMsg(res.data.message || "تم التغيير.");
-      setTimeout(() => nav("/login"), 700);
+
+      setOk("تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.");
+      setTimeout(() => nav("/login", { replace: true }), 800);
     } catch (ex) {
-      setErr(ex?.response?.data?.message || "فشل إعادة التعيين.");
+      const status = ex?.response?.status;
+      const msg =
+        ex?.response?.data?.message ||
+        (status === 422
+          ? "المعطيات غير صحيحة (تأكد من كلمة المرور أو صلاحية الرابط)"
+          : status === 403
+          ? "هذه العملية متاحة للإدارة فقط"
+          : "وقع خطأ أثناء إعادة تعيين كلمة المرور");
+      setErr(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="authWrap">
-      <div className="card authCard" style={{ maxWidth: 520 }}>
+      <div className="card authCard">
         <h2>إعادة تعيين كلمة المرور</h2>
-        {msg && <div className="alert alertSuccess">{msg}</div>}
+
+        {/* Debug info باش تتأكد أنه كيقرا token/email */}
+        <div className="help" style={{ marginBottom: 10, opacity: 0.9 }}>
+          <div>
+            <strong>Email:</strong> {email || "—"}
+          </div>
+          <div>
+            <strong>Token:</strong> {token ? `${token.slice(0, 12)}...` : "—"}
+          </div>
+        </div>
+
         {err && <div className="alert alertError">{err}</div>}
+        {ok && <div className="alert alertSuccess">{ok}</div>}
 
         <form onSubmit={submit} className="form">
           <div className="field">
-            <div className="label">Email</div>
-            <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-
-          <div className="field">
-            <div className="label">Token</div>
-            <input className="input" value={token} onChange={(e) => setToken(e.target.value)} />
-          </div>
-
-          <div className="field">
             <div className="label">كلمة المرور الجديدة</div>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+              minLength={6}
+            />
           </div>
 
           <div className="field">
             <div className="label">تأكيد كلمة المرور</div>
-            <input className="input" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} />
+            <input
+              className="input"
+              type="password"
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              autoComplete="new-password"
+              required
+              minLength={6}
+            />
           </div>
 
-          <button type="submit" className="btn btnPrimary">تغيير</button>
+          <button className="btn btnPrimary" type="submit" disabled={!canSubmit || loading}>
+            {loading ? "..." : "تأكيد"}
+          </button>
+
+          <div className="help" style={{ marginTop: 10 }}>
+            <Link to="/login">الرجوع لتسجيل الدخول</Link>
+          </div>
         </form>
       </div>
     </div>

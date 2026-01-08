@@ -2,19 +2,33 @@ import axios from "axios";
 
 export const API_BASE_URL = "http://127.0.0.1:8000";
 
+/**
+ * Axios instance
+ */
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   timeout: 30000,
-  headers: { Accept: "application/json" },
+  headers: {
+    Accept: "application/json",
+  },
 });
 
+/**
+ * Token helpers
+ */
 export const getToken = () => localStorage.getItem("token");
-export const setToken = (t) => localStorage.setItem("token", t);
+export const setToken = (token) => localStorage.setItem("token", token);
 export const clearToken = () => localStorage.removeItem("token");
 
+/**
+ * Request interceptor
+ * - Adds Bearer token if exists
+ * - IMPORTANT: do NOT force Content-Type (FormData uploads)
+ */
 api.interceptors.request.use(
   (config) => {
     const token = getToken();
+
     config.headers = config.headers || {};
     config.headers.Accept = "application/json";
 
@@ -22,24 +36,26 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // مهم: ما تفرضش Content-Type فـ FormData
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+/**
+ * Response interceptor
+ * - ONLY clear token if /auth/me returns 401
+ * - NO redirects here (guards handle navigation)
+ */
 api.interceptors.response.use(
-  (res) => res,
+  (response) => response,
   (error) => {
     const status = error?.response?.status;
     const url = error?.config?.url || "";
 
-    // غير إلا /auth/me رجعات 401 => token ما صالحش
     if (status === 401 && url.includes("/auth/me")) {
       clearToken();
     }
 
-    // ما تديرش redirect هنا نهائياً
     return Promise.reject(error);
   }
 );

@@ -1,4 +1,10 @@
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import api, { getToken, setToken as persistToken, clearToken } from "../api";
 
 export const AuthContext = createContext(null);
@@ -6,16 +12,26 @@ export const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getToken());
   const [user, setUser] = useState(null);
-
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (_) {
+      // ignore
+    } finally {
+      clearToken();
+      setToken(null);
+      setUser(null);
+    }
+  }, []);
 
   const fetchMe = useCallback(async () => {
     const res = await api.get("/auth/me");
     return res.data?.user ?? res.data;
   }, []);
 
-  // ✅ init on startup
   useEffect(() => {
     let mounted = true;
 
@@ -23,38 +39,41 @@ export function AuthProvider({ children }) {
       setIsLoading(true);
       setAuthError(null);
 
-      const t = getToken();
-      if (!t) {
-        if (!mounted) return;
-        setToken(null);
-        setUser(null);
-        setIsLoading(false);
+      const storedToken = getToken();
+      if (!storedToken) {
+        if (mounted) {
+          setToken(null);
+          setUser(null);
+          setIsLoading(false);
+        }
         return;
       }
 
-      if (!mounted) return;
-      setToken(t);
+      if (mounted) setToken(storedToken);
 
       try {
         const me = await fetchMe();
 
-        // optional: is_active
         if (me?.is_active === false) {
           clearToken();
-          if (!mounted) return;
-          setToken(null);
-          setUser(null);
-          setAuthError("ACCOUNT_DISABLED");
+          if (mounted) {
+            setToken(null);
+            setUser(null);
+            setAuthError("ACCOUNT_DISABLED");
+          }
         } else {
-          if (!mounted) return;
-          setUser(me);
+          if (mounted) setUser(me);
         }
       } catch (err) {
-        // إذا فشل /me: خليه not-auth (interceptor قد يكون مسح token)
-        if (!mounted) return;
-        setUser(null);
-        setToken(getToken()); // غالباً null
-        setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "ME_FAILED");
+        if (mounted) {
+          setUser(null);
+          setToken(getToken());
+          setAuthError(
+            err?.response?.status
+              ? `HTTP_${err.response.status}`
+              : "ME_FAILED"
+          );
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -65,7 +84,6 @@ export function AuthProvider({ children }) {
     };
   }, [fetchMe]);
 
-  // ✅ login
   const login = useCallback(async ({ identifier, password }) => {
     setIsLoading(true);
     setAuthError(null);
@@ -84,25 +102,14 @@ export function AuthProvider({ children }) {
       setToken(newToken);
       setUser(loggedUser);
 
-      return { token: newToken, user: loggedUser };
+      return { user: loggedUser, token: newToken };
     } catch (err) {
-      setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "LOGIN_FAILED");
+      setAuthError(
+        err?.response?.status ? `HTTP_${err.response.status}` : "LOGIN_FAILED"
+      );
       throw err;
     } finally {
       setIsLoading(false);
-    }
-  }, []);
-
-  // ✅ logout
-  const logout = useCallback(async () => {
-    try {
-      await api.post("/auth/logout");
-    } catch (_) {
-      // ignore
-    } finally {
-      clearToken();
-      setToken(null);
-      setUser(null);
     }
   }, []);
 
