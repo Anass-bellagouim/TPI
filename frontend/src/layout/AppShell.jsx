@@ -1,14 +1,32 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
+import React, { useContext, useMemo, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { AuthContext } from "../auth/AuthContext.jsx";
 
 export default function AppShell({ children }) {
-  const linkClass = ({ isActive }) =>
-    `navlink ${isActive ? "navlink--active" : ""}`;
+  const nav = useNavigate();
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
+
+  const [open, setOpen] = useState(false);
+
+  const linkClass = ({ isActive }) => `navlink ${isActive ? "navlink--active" : ""}`;
+
+  const displayName = useMemo(() => {
+    if (!user) return "غير مسجل";
+    return user.full_name || user.username || user.email;
+  }, [user]);
+
+  async function onLogout() {
+    setOpen(false);
+    await auth?.logout?.();
+    nav("/login");
+  }
 
   return (
     <div className="shell rtl">
       <header className="navbar">
         <div className="navbar__inner">
+          {/* RIGHT: logo + title */}
           <div className="brand">
             <div className="brand__badge">م</div>
             <div className="brand__titles">
@@ -17,14 +35,76 @@ export default function AppShell({ children }) {
             </div>
           </div>
 
+          {/* CENTER: quick links */}
           <nav className="navlinks">
             <NavLink to="/search" className={linkClass}>
-              البحث
+              الوثائق
             </NavLink>
             <NavLink to="/add" className={linkClass}>
               إضافة وثيقة
             </NavLink>
+
+            {/* admin only */}
+            {user?.role === "admin" && (
+              <NavLink to="/employees" className={linkClass}>
+                الموظفون
+              </NavLink>
+            )}
           </nav>
+
+          {/* LEFT: user dropdown */}
+          <div className="userBox">
+            <button
+              className="userBtn"
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={open ? "true" : "false"}
+            >
+              <div className="userAvatar" aria-hidden="true">
+                {(displayName?.[0] || "U").toUpperCase()}
+              </div>
+              <div className="userMeta">
+                <div className="userName">{displayName}</div>
+                <div className="userRole">{user?.role || "guest"}</div>
+              </div>
+              <span className="chev" aria-hidden="true">▾</span>
+            </button>
+
+            {open && (
+              <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
+                <button className="menuItem" onClick={() => { setOpen(false); nav("/search"); }}>
+                  الوثائق (بحث متقدم)
+                </button>
+
+                <button className="menuItem" onClick={() => { setOpen(false); nav("/add"); }}>
+                  إضافة وثيقة
+                </button>
+
+                {user?.role === "admin" && (
+                  <>
+                    <div className="menuSep" />
+                    <button className="menuItem" onClick={() => { setOpen(false); nav("/employees"); }}>
+                      الموظفون (بحث + لائحة)
+                    </button>
+                    <button className="menuItem" onClick={() => { setOpen(false); nav("/employees/add"); }}>
+                      إضافة موظف
+                    </button>
+                  </>
+                )}
+
+                <div className="menuSep" />
+
+                <button className="menuItem" onClick={() => { setOpen(false); nav("/change-password"); }}>
+                  تغيير كلمة المرور
+                </button>
+
+                <button className="menuItem danger" onClick={onLogout}>
+                  تسجيل الخروج
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

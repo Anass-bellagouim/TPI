@@ -1,104 +1,88 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api.js";
 
-const TYPE_OPTIONS = [
-  { value: "جنحة", label: "جنحة" },
-  { value: "مخالفة", label: "مخالفة" },
-  { value: "حوادث", label: "حوادث" },
-];
-
-function isPdf(file) {
-  if (!file) return false;
-  const byType = file.type === "application/pdf";
-  const byName = file.name?.toLowerCase().endsWith(".pdf");
-  return byType || byName;
-}
-
-function StatusBadge({ status }) {
-  const s = (status || "").toLowerCase();
-  const map = {
-    pending: "badge badgePending",
-    processing: "badge badgeProcessing",
-    done: "badge badgeDone",
-    failed: "badge badgeFailed",
-  };
-  const cls = map[s] || "badge badgePending";
-
-  const labelMap = {
-    pending: "في الانتظار",
-    processing: "قيد المعالجة",
-    done: "تم الاستخراج",
-    failed: "فشل الاستخراج",
-  };
-
-  return (
-    <span className={cls}>
-      <span className="dot" />
-      {labelMap[s] || status || "pending"}
-    </span>
-  );
-}
+const TYPE_OPTIONS = ["", "جنحة", "مخالفة", "حوادث"];
 
 export default function AddDocument() {
-  const [type, setType] = useState(TYPE_OPTIONS[0].value);
-  const [judgementNumber, setJudgementNumber] = useState("");
-  const [caseNumber, setCaseNumber] = useState("");
-  const [judgeName, setJudgeName] = useState("");
-  const [file, setFile] = useState(null);
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
-  const fileHint = useMemo(() => {
-    if (!file) return "اختار ملف PDF من هنا.";
-    if (!isPdf(file)) return "الملف ماشي PDF. رجاءً اختار PDF صحيح.";
-    return `تم اختيار: ${file.name}`;
-  }, [file]);
+  const [file, setFile] = useState(null);
 
-  async function handleSubmit(e) {
+  const [type, setType] = useState("");
+  const [caseNumber, setCaseNumber] = useState("");
+  const [judgementNumber, setJudgementNumber] = useState("");
+  const [judgeName, setJudgeName] = useState("");
+  const [division, setDivision] = useState("");
+  const [keyword, setKeyword] = useState("");
+
+  const fileName = useMemo(() => file?.name || "", [file]);
+
+  function resetForm() {
+    setFile(null);
+    setType("");
+    setCaseNumber("");
+    setJudgementNumber("");
+    setJudgeName("");
+    setDivision("");
+    setKeyword("");
+  }
+
+  async function onSubmit(e) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    setError("");
+    setInfo("");
 
     if (!file) {
-      setError("خاصك تختار ملف PDF قبل الإرسال.");
+      setError("خاصك تختار ملف PDF قبل الرفع.");
       return;
     }
-    if (!isPdf(file)) {
-      setError("الملف المختار ماشي PDF.");
+
+    // حماية بسيطة
+    if (file.type !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
+      setError("الملف خاصو يكون PDF.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const form = new FormData();
-      form.append("type", type);
-      if (judgementNumber) form.append("judgement_number", judgementNumber);
-      if (caseNumber) form.append("case_number", caseNumber);
-      if (judgeName) form.append("judge_name", judgeName);
-      form.append("file", file);
+      const fd = new FormData();
 
-      const res = await api.post("/api/documents", form, {
+      // ✅ مهم: اسم الحقل خاصو يكون "pdf" باش يطابق backend validation
+      fd.append("pdf", file);
+
+      // metadata
+      fd.append("type", type || "");
+      fd.append("case_number", caseNumber.trim());
+      fd.append("judgement_number", judgementNumber.trim());
+      fd.append("judge_name", judgeName.trim());
+      fd.append("division", division.trim());
+      fd.append("keyword", keyword.trim());
+
+      const res = await api.post("/documents", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const doc = res.data?.document ?? res.data;
-      setSuccess({
-        id: doc?.id,
-        status: doc?.extract_status || "pending",
-      });
+      const doc = res.data?.data;
+      setInfo(res.data?.message || "تم رفع الوثيقة بنجاح.");
 
-      // Reset
-      setJudgementNumber("");
-      setCaseNumber("");
-      setJudgeName("");
-      setFile(null);
-    } catch (err) {
+      // من بعد الرفع، سير للتفاصيل
+      if (doc?.id) {
+        navigate(`/documents/${doc.id}`, { replace: true });
+        return;
+      }
+
+      // إذا ما رجعش id لأي سبب، خليه غير يبين message
+      resetForm();
+    } catch (e2) {
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
+        e2?.response?.data?.message ||
+        (typeof e2?.response?.data === "string" ? e2.response.data : null) ||
         "وقع خطأ أثناء رفع الوثيقة.";
       setError(msg);
     } finally {
@@ -110,18 +94,14 @@ export default function AddDocument() {
     <div>
       <div className="pageHeader">
         <div>
-          <h2>إضافة وثيقة قضائية</h2>
-          <p>دير المعلومات فاليمين ورفع الملف فاليسر بطريقة واضحة.</p>
+          <h2>إضافة وثيقة</h2>
+          <p>رفع PDF + إدخال معلومات الوثيقة.</p>
         </div>
       </div>
 
-      {success && (
-        <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div><strong>تم الرفع بنجاح.</strong></div>
-            <div>المعرف: <strong>{success.id ?? "—"}</strong></div>
-            <StatusBadge status={success.status} />
-          </div>
+      {info && (
+        <div className="alert alertInfo card" style={{ marginBottom: 14 }}>
+          {info}
         </div>
       )}
 
@@ -131,93 +111,126 @@ export default function AddDocument() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="addLayout">
-        {/* RIGHT: inputs */}
-        <div className="card">
+      <div className="card">
+        <form onSubmit={onSubmit}>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <div className="label">ملف PDF</div>
+            <input
+              className="input"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              disabled={loading}
+            />
+            <div className="help" style={{ marginTop: 6 }}>
+              {file ? `الملف المختار: ${file.name}` : "اختار ملف PDF."}
+            </div>
+          </div>
+
           <div className="grid2">
             <div className="field">
-              <div className="label">نوع القضية (مطلوب)</div>
-              <select className="select" value={type} onChange={(e) => setType(e.target.value)}>
-                {TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+              <div className="label">نوع القضية</div>
+              <select
+                className="select"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                disabled={loading}
+              >
+                {TYPE_OPTIONS.map((t) => (
+                  <option key={t || "all"} value={t}>
+                    {t || "—"}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="field">
-              <div className="label">رقم الحكم (اختياري)</div>
-              <input
-                className="input"
-                value={judgementNumber}
-                onChange={(e) => setJudgementNumber(e.target.value)}
-                placeholder="مثال: 2024/123"
-              />
-            </div>
-
-            <div className="field">
-              <div className="label">رقم الملف (اختياري)</div>
+              <div className="label">رقم الملف</div>
               <input
                 className="input"
                 value={caseNumber}
                 onChange={(e) => setCaseNumber(e.target.value)}
-                placeholder="مثال: 01/2025"
+                placeholder="مثال: 2025/0001/7"
+                disabled={loading}
               />
             </div>
 
             <div className="field">
-              <div className="label">اسم القاضي (اختياري)</div>
+              <div className="label">رقم الحكم</div>
+              <input
+                className="input"
+                value={judgementNumber}
+                onChange={(e) => setJudgementNumber(e.target.value)}
+                placeholder="مثال: 2024/9"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="field">
+              <div className="label">اسم القاضي</div>
               <input
                 className="input"
                 value={judgeName}
                 onChange={(e) => setJudgeName(e.target.value)}
-                placeholder="مثال: الأستاذ(ة) ..."
+                placeholder="مثال: محمد..."
+                disabled={loading}
+              />
+            </div>
+
+            <div className="field">
+              <div className="label">الشعبة</div>
+              <input
+                className="input"
+                value={division}
+                onChange={(e) => setDivision(e.target.value)}
+                placeholder="مثال: الشعبة الأولى"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="field">
+              <div className="label">كلمة مفتاحية</div>
+              <input
+                className="input"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="مثال: استئناف..."
+                disabled={loading}
               />
             </div>
           </div>
 
-          <div className="rowActions" style={{ marginTop: 14 }}>
+          <div className="rowActions" style={{ marginTop: 12 }}>
             <button className="btn btnPrimary" type="submit" disabled={loading}>
-              {loading ? "جاري الإرسال..." : "رفع الوثيقة"}
+              {loading ? "..." : "رفع الوثيقة"}
+            </button>
+
+            <button
+              className="btn btnSecondary"
+              type="button"
+              disabled={loading}
+              onClick={resetForm}
+            >
+              مسح
+            </button>
+
+            <button
+              className="btn btnSecondary"
+              type="button"
+              disabled={loading}
+              onClick={() => navigate("/search")}
+              style={{ marginInlineStart: "auto" }}
+            >
+              رجوع
             </button>
           </div>
-        </div>
 
-        {/* LEFT: big upload */}
-        <div className="card uploadCard">
-          <div className="dropZone">
-            <strong>رفع ملف PDF</strong>
-            <div className="help">
-              اختار PDF واضح. إلا كان Scanned، النظام غادي يدير OCR.
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <input
-                className="bigFileInput"
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
-              {file && (
-                <div className="fileNamePill">
-                  {isPdf(file) ? "✅ " : "⚠️ "} {file.name}
-                </div>
-              )}
-              {!file && <div className="help" style={{ marginTop: 10 }}>{fileHint}</div>}
-              {file && !isPdf(file) && (
-                <div className="help" style={{ marginTop: 10, color: "#b42318" }}>
-                  الملف ماشي PDF.
-                </div>
-              )}
-            </div>
+          <div className="help" style={{ marginTop: 10 }}>
+            ملاحظة: بعد الرفع، الوثيقة كتكون <strong>pending</strong> حتى يكمل استخراج النص
+            (queue worker).
           </div>
-
-          <div className="footerNote">
-            نصيحة: خلّي حجم الملف أقل من 20MB باش الرفع يكون سريع.
-          </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

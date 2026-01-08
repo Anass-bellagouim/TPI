@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useContext } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import api, { API_BASE_URL, storageUrl } from "../api.js";
+import api, { API_BASE_URL } from "../api.js";
+import { AuthContext } from "../auth/AuthContext.jsx";
 
 function StatusBadge({ status }) {
   const s = (status || "").toLowerCase();
@@ -24,28 +25,30 @@ export default function DocumentDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
+
   const [loading, setLoading] = useState(false);
   const [doc, setDoc] = useState(null);
   const [error, setError] = useState(null);
 
-  // edit mode
+  const [pdfBlobUrl, setPdfBlobUrl] = useState("");
+
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     type: "",
     judgement_number: "",
     case_number: "",
     judge_name: "",
+    division: "",
+    keyword: "",
   });
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  const pdfUrl = useMemo(() => {
-    if (!doc?.file_path) return null;
-    return storageUrl(doc.file_path);
-  }, [doc]);
-
-  const downloadUrl = useMemo(() => {
+  const downloadApiUrl = useMemo(() => {
     return `${API_BASE_URL}/api/documents/${id}/download`;
   }, [id]);
 
@@ -55,29 +58,47 @@ export default function DocumentDetails() {
 
     try {
       setLoading(true);
-      const res = await api.get(`/api/documents/${id}`);
-      setDoc(res.data);
+      const res = await api.get(`/documents/${id}`);
+      const d = res.data?.data || res.data;
+      setDoc(d);
 
-      // حضّر الفورم للتعديل
       setForm({
-        type: res.data?.type || "",
-        judgement_number: res.data?.judgement_number || "",
-        case_number: res.data?.case_number || "",
-        judge_name: res.data?.judge_name || "",
+        type: d?.type || "",
+        judgement_number: d?.judgement_number || "",
+        case_number: d?.case_number || "",
+        judge_name: d?.judge_name || "",
+        division: d?.division || "",
+        keyword: d?.keyword || "",
       });
     } catch (err) {
-      const m =
-        err?.response?.data?.message ||
-        err?.message ||
-        "تعذر تحميل تفاصيل الوثيقة.";
+      const m = err?.response?.data?.message || err?.message || "تعذر تحميل تفاصيل الوثيقة.";
       setError(m);
     } finally {
       setLoading(false);
     }
   }
 
+  async function fetchPdfBlob() {
+    try {
+      const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      setPdfBlobUrl(url);
+    } catch {
+      setPdfBlobUrl("");
+    }
+  }
+
   useEffect(() => {
     fetchDoc();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    let old = pdfBlobUrl;
+    fetchPdfBlob();
+    return () => {
+      if (old) URL.revokeObjectURL(old);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -89,22 +110,21 @@ export default function DocumentDetails() {
       setSaving(true);
       const payload = {
         type: form.type,
-        judgement_number: form.judgement_number || null,
-        case_number: form.case_number || null,
-        judge_name: form.judge_name || null,
+        judgement_number: form.judgement_number,
+        case_number: form.case_number,
+        judge_name: form.judge_name,
+        division: form.division,
+        keyword: form.keyword || null,
       };
 
-      const res = await api.put(`/api/documents/${id}`, payload);
-      const updated = res.data?.document || res.data;
+      const res = await api.put(`/documents/${id}`, payload);
+      const updated = res.data?.data || res.data;
 
       setDoc((prev) => ({ ...(prev || {}), ...(updated || {}) }));
       setEditing(false);
       setMsg("✅ تم تعديل الوثيقة بنجاح.");
     } catch (err) {
-      const m =
-        err?.response?.data?.message ||
-        err?.message ||
-        "وقع خطأ أثناء التعديل.";
+      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء التعديل.";
       setError(m);
     } finally {
       setSaving(false);
@@ -120,16 +140,30 @@ export default function DocumentDetails() {
 
     try {
       setDeleting(true);
-      await api.delete(`/api/documents/${id}`);
+      await api.delete(`/documents/${id}`);
       navigate("/search");
     } catch (err) {
-      const m =
-        err?.response?.data?.message ||
-        err?.message ||
-        "وقع خطأ أثناء الحذف.";
+      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء الحذف.";
       setError(m);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function onDownload() {
+    setError(null);
+    try {
+      const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `document_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err?.response?.data?.message || "تعذر تحميل PDF.");
     }
   }
 
@@ -138,48 +172,49 @@ export default function DocumentDetails() {
       <div className="pageHeader">
         <div>
           <h2>تفاصيل الوثيقة #{id}</h2>
-          <p>معاينة PDF + تحميل مباشر + تعديل/حذف.</p>
+          <p>معاينة PDF + تحميل + تعديل/حذف.</p>
         </div>
 
         <div className="rowActions">
           <Link className="btn btnSecondary" to="/search">
-            رجوع للبحث
+            رجوع
           </Link>
 
-          {pdfUrl && (
-            <>
-              <a className="btn btnSecondary" href={pdfUrl} target="_blank" rel="noreferrer">
-                فتح PDF
-              </a>
-              <a className="btn btnPrimary" href={downloadUrl}>
-                تحميل PDF
-              </a>
-            </>
-          )}
+          <button className="btn btnSecondary" onClick={fetchPdfBlob} disabled={!doc}>
+            إعادة تحميل PDF
+          </button>
+
+          <button className="btn btnPrimary" onClick={onDownload} disabled={!doc}>
+            تحميل PDF
+          </button>
 
           {!editing ? (
             <>
               <button className="btn btnSecondary" onClick={() => setEditing(true)} disabled={!doc}>
                 تعديل
               </button>
-              <button className="btn btnDanger" onClick={onDelete} disabled={!doc || deleting}>
-                {deleting ? "جاري الحذف..." : "حذف"}
-              </button>
+
+              {user?.role === "admin" && (
+                <button className="btn btnDanger" onClick={onDelete} disabled={!doc || deleting}>
+                  {deleting ? "جاري الحذف..." : "حذف"}
+                </button>
+              )}
             </>
           ) : (
             <>
               <button className="btn btnPrimary" onClick={onSave} disabled={saving}>
-                {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+                {saving ? "جاري الحفظ..." : "حفظ"}
               </button>
               <button
                 className="btn btnSecondary"
                 onClick={() => {
-                  // رجّع القيم الأصلية
                   setForm({
                     type: doc?.type || "",
                     judgement_number: doc?.judgement_number || "",
                     case_number: doc?.case_number || "",
                     judge_name: doc?.judge_name || "",
+                    division: doc?.division || "",
+                    keyword: doc?.keyword || "",
                   });
                   setEditing(false);
                 }}
@@ -192,23 +227,9 @@ export default function DocumentDetails() {
         </div>
       </div>
 
-      {loading && (
-        <div className="alert alertInfo card" style={{ marginBottom: 14 }}>
-          جاري التحميل...
-        </div>
-      )}
-
-      {msg && (
-        <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>
-          {msg}
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alertError card" style={{ marginBottom: 14 }}>
-          <strong>خطأ:</strong> {error}
-        </div>
-      )}
+      {loading && <div className="alert alertInfo card" style={{ marginBottom: 14 }}>جاري التحميل...</div>}
+      {msg && <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>{msg}</div>}
+      {error && <div className="alert alertError card" style={{ marginBottom: 14 }}><strong>خطأ:</strong> {error}</div>}
 
       {doc && (
         <>
@@ -217,12 +238,6 @@ export default function DocumentDetails() {
               <div>
                 <strong>الحالة:</strong> <StatusBadge status={doc.extract_status} />
               </div>
-
-              {doc.extract_status === "failed" && doc.extract_error && (
-                <div className="help" style={{ maxWidth: 520 }}>
-                  <strong>سبب الفشل:</strong> {doc.extract_error}
-                </div>
-              )}
             </div>
 
             {!editing ? (
@@ -232,52 +247,35 @@ export default function DocumentDetails() {
                 <div><span className="k">رقم الحكم:</span> {doc.judgement_number || "—"}</div>
                 <div><span className="k">رقم الملف:</span> {doc.case_number || "—"}</div>
                 <div><span className="k">اسم القاضي:</span> {doc.judge_name || "—"}</div>
+                <div><span className="k">الشعبة:</span> {doc.division || "—"}</div>
+                <div><span className="k">الكلمة المفتاحية:</span> {doc.keyword || "—"}</div>
                 <div><span className="k">تاريخ الإضافة:</span> {doc.created_at || "—"}</div>
               </div>
             ) : (
               <div className="grid2" style={{ marginTop: 12 }}>
                 <div className="field">
                   <div className="label">النوع</div>
-                  <select
-                    className="select"
-                    value={form.type}
-                    onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
-                  >
-                    <option value="جنحة">جنحة</option>
-                    <option value="مخالفة">مخالفة</option>
-                    <option value="حوادث">حوادث</option>
-                  </select>
+                  <input className="input" value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} />
                 </div>
-
                 <div className="field">
                   <div className="label">رقم الحكم</div>
-                  <input
-                    className="input"
-                    value={form.judgement_number}
-                    onChange={(e) => setForm((p) => ({ ...p, judgement_number: e.target.value }))}
-                  />
+                  <input className="input" value={form.judgement_number} onChange={(e) => setForm(p => ({ ...p, judgement_number: e.target.value }))} />
                 </div>
-
                 <div className="field">
                   <div className="label">رقم الملف</div>
-                  <input
-                    className="input"
-                    value={form.case_number}
-                    onChange={(e) => setForm((p) => ({ ...p, case_number: e.target.value }))}
-                  />
+                  <input className="input" value={form.case_number} onChange={(e) => setForm(p => ({ ...p, case_number: e.target.value }))} />
                 </div>
-
                 <div className="field">
                   <div className="label">اسم القاضي</div>
-                  <input
-                    className="input"
-                    value={form.judge_name}
-                    onChange={(e) => setForm((p) => ({ ...p, judge_name: e.target.value }))}
-                  />
+                  <input className="input" value={form.judge_name} onChange={(e) => setForm(p => ({ ...p, judge_name: e.target.value }))} />
                 </div>
-
-                <div className="help" style={{ gridColumn: "1 / -1" }}>
-                  ملاحظة: التعديل هنا غير metadata (type, numbers, judge). رفع ملف جديد نقدروا نزيدوه من بعد إذا بغيتي.
+                <div className="field">
+                  <div className="label">الشعبة</div>
+                  <input className="input" value={form.division} onChange={(e) => setForm(p => ({ ...p, division: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <div className="label">كلمة مفتاحية</div>
+                  <input className="input" value={form.keyword} onChange={(e) => setForm(p => ({ ...p, keyword: e.target.value }))} />
                 </div>
               </div>
             )}
@@ -287,29 +285,19 @@ export default function DocumentDetails() {
             <div className="rowActions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
               <div>
                 <strong>معاينة PDF</strong>
-                <div className="help">
-                  إذا ما بانش PDF هنا، استعمل “فتح PDF” أو “تحميل PDF”.
-                </div>
+                <div className="help">إذا ما بانش PDF هنا، استعمل زر التحميل.</div>
+              </div>
+              <div className="help">
+                API: <code>{downloadApiUrl}</code>
               </div>
             </div>
 
-            {pdfUrl ? (
-              <div
-                style={{
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  background: "#fff",
-                }}
-              >
-                <iframe
-                  title={`PDF_${id}`}
-                  src={pdfUrl}
-                  style={{ width: "100%", height: "75vh", border: "0", display: "block" }}
-                />
+            {pdfBlobUrl ? (
+              <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "#fff" }}>
+                <iframe title={`PDF_${id}`} src={pdfBlobUrl} style={{ width: "100%", height: "75vh", border: "0", display: "block" }} />
               </div>
             ) : (
-              <div className="alert alertInfo">ما كاينش file_path باش نعرضو PDF.</div>
+              <div className="alert alertInfo">تعذر عرض PDF. استعمل زر التحميل.</div>
             )}
           </div>
         </>

@@ -10,142 +10,204 @@ use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {
+    // GET /api/documents (pagination 20) — بلا content_text
     public function index()
     {
-        return Document::latest()->paginate(20);
+        $docs = Document::query()
+            ->select([
+                'id',
+                'type',
+                'case_number',
+                'judgement_number',
+                'judge_name',
+                'division',
+                'keyword',
+                'original_filename',
+                'file_path',
+                'status',
+                'extract_status',
+                'extract_error',
+                'created_at',
+                'updated_at',
+            ])
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return response()->json($docs);
     }
 
+    // POST /api/documents (multipart/form-data)
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'type' => ['required', 'string', 'max:100'],
-            'judgement_number' => ['nullable', 'string', 'max:100'],
-            'case_number' => ['nullable', 'string', 'max:100'],
-            'judge_name' => ['nullable', 'string', 'max:200'],
-            'file' => ['required', 'file', 'mimes:pdf', 'max:20480'], // 20MB
+        $data = $request->validate([
+            'pdf' => ['required', 'file', 'mimes:pdf', 'max:51200'], // 50MB
+            'type' => ['nullable', 'string', 'max:50'],
+            'case_number' => ['nullable', 'string', 'max:255'],
+            'judgement_number' => ['nullable', 'string', 'max:255'],
+            'judge_name' => ['nullable', 'string', 'max:255'],
+            'division' => ['nullable', 'string', 'max:255'],
+            'keyword' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $file = $request->file('file');
-        $path = $file->store('documents', 'public'); // storage/app/public/documents/...
+        $pdf = $data['pdf'];
+        $path = $pdf->store('documents', 'public'); // documents/xxx.pdf
 
-        $doc = Document::create([
-            'type' => $validated['type'],
-            'judgement_number' => $validated['judgement_number'] ?? null,
-            'case_number' => $validated['case_number'] ?? null,
-            'judge_name' => $validated['judge_name'] ?? null,
-            'original_filename' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'extract_status' => 'pending',
-            'content_text' => null,
-            'extract_error' => null,
-        ]);
+        $doc = new Document();
+        $doc->type = $data['type'] ?? null;
+        $doc->case_number = $data['case_number'] ?? null;
+        $doc->judgement_number = $data['judgement_number'] ?? null;
+        $doc->judge_name = $data['judge_name'] ?? null;
+        $doc->division = $data['division'] ?? null;
+        $doc->keyword = $data['keyword'] ?? null;
 
-        // ✅ dispatch job ديال استخراج النص من PDF
+        $doc->original_filename = $pdf->getClientOriginalName();
+        $doc->file_path = $path;
+
+        // fields for extraction
+        $doc->content_text = null;
+        $doc->status = 'pending';          // عندك فـ الجدول
+        $doc->extract_status = 'pending';  // ديال job
+        $doc->extract_error = null;
+
+        $doc->save();
+
+        // ✅ dispatch extraction job
         ExtractDocumentTextJob::dispatch($doc->id);
 
         return response()->json([
-            'status' => 'ok',
-            'document' => $doc
+            'message' => 'تم رفع الوثيقة بنجاح وتمت إضافتها للمعالجة',
+            'data' => $doc->only([
+                'id',
+                'type',
+                'case_number',
+                'judgement_number',
+                'judge_name',
+                'division',
+                'keyword',
+                'original_filename',
+                'file_path',
+                'status',
+                'extract_status',
+                'extract_error',
+                'created_at',
+            ]),
         ], 201);
     }
 
-    public function show($id)
+    // GET /api/documents/search?type=&case_number=&judgement_number=&judge_name=&division=&keyword=
+    // (كيـرجع data[] limit 50)
+    public function search(Request $request)
     {
-        return Document::findOrFail($id);
-    }
+        $type = trim((string) $request->query('type', ''));
+        $caseNumber = trim((string) $request->query('case_number', ''));
+        $judgementNumber = trim((string) $request->query('judgement_number', ''));
+        $judgeName = trim((string) $request->query('judge_name', ''));
+        $division = trim((string) $request->query('division', ''));
+        $keyword = trim((string) $request->query('keyword', ''));
 
-    public function download($id)
-    {
-        $doc = Document::findOrFail($id);
+        $q = Document::query()
+            ->select([
+                'id',
+                'type',
+                'case_number',
+                'judgement_number',
+                'judge_name',
+                'division',
+                'keyword',
+                'status',
+                'extract_status',
+                'created_at',
+            ])
+            ->orderByDesc('id');
 
-        if (!$doc->file_path || !Storage::disk('public')->exists($doc->file_path)) {
-            return response()->json(['message' => 'File not found'], 404);
+        if ($type !== '') {
+            $q->where('type', $type);
+        }
+        if ($caseNumber !== '') {
+            $q->where('case_number', 'like', "%{$caseNumber}%");
+        }
+        if ($judgementNumber !== '') {
+            $q->where('judgement_number', 'like', "%{$judgementNumber}%");
+        }
+        if ($judgeName !== '') {
+            $q->where('judge_name', 'like', "%{$judgeName}%");
+        }
+        if ($division !== '') {
+            $q->where('division', 'like', "%{$division}%");
+        }
+        if ($keyword !== '') {
+            $q->where(function ($qq) use ($keyword) {
+                $qq->where('keyword', 'like', "%{$keyword}%")
+                    ->orWhere('content_text', 'like', "%{$keyword}%")
+                    ->orWhere('original_filename', 'like', "%{$keyword}%");
+            });
         }
 
-        $downloadName = $doc->original_filename ?: ("document_" . $doc->id . ".pdf");
+        $docs = $q->limit(50)->get();
 
-        // كيـفرض التحميل: Content-Disposition: attachment
-        return Storage::disk('public')->download(
-            $doc->file_path,
-            $downloadName,
-            ['Content-Type' => 'application/pdf']
-        );
+        return response()->json(['data' => $docs]);
     }
 
-    public function update(Request $request, $id)
+    // GET /api/documents/{id}
+    public function show(int $id)
     {
         $doc = Document::findOrFail($id);
 
-        $validated = $request->validate([
-            'type' => ['sometimes', 'required', 'string', 'max:100'],
-            'judgement_number' => ['nullable', 'string', 'max:100'],
-            'case_number' => ['nullable', 'string', 'max:100'],
-            'judge_name' => ['nullable', 'string', 'max:200'],
+        // هنا كنرجعو content_text باش details يقدر يبينو
+        return response()->json($doc);
+    }
+
+    // PUT/PATCH /api/documents/{id}
+    public function update(Request $request, int $id)
+    {
+        $doc = Document::findOrFail($id);
+
+        $data = $request->validate([
+            'type' => ['nullable', 'string', 'max:50'],
+            'case_number' => ['nullable', 'string', 'max:255'],
+            'judgement_number' => ['nullable', 'string', 'max:255'],
+            'judge_name' => ['nullable', 'string', 'max:255'],
+            'division' => ['nullable', 'string', 'max:255'],
+            'keyword' => ['nullable', 'string', 'max:255'],
+            // status اختياري (إلا بغيتي تتحكم فيه من admin)
+            'status' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $doc->update($validated);
+        $doc->fill($data);
+        $doc->save();
 
         return response()->json([
-            'status' => 'ok',
-            'document' => $doc
+            'message' => 'تم تحديث الوثيقة بنجاح',
+            'data' => $doc,
         ]);
     }
 
-    public function destroy($id)
+    // DELETE /api/documents/{id}
+    public function destroy(int $id)
     {
         $doc = Document::findOrFail($id);
 
-        // حذف الملف من storage
         if ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
             Storage::disk('public')->delete($doc->file_path);
         }
 
         $doc->delete();
 
-        return response()->json([
-            'status' => 'ok',
-            'message' => 'Document deleted'
-        ]);
+        return response()->json(['message' => 'تم حذف الوثيقة بنجاح']);
     }
 
-    public function search(Request $request)
+    // GET /api/documents/{id}/download
+    public function download(int $id)
     {
-        $q = (string) $request->query('q', '');
+        $doc = Document::findOrFail($id);
 
-        if (trim($q) === '') {
-            return response()->json([
-                'status' => 'ok',
-                'count' => 0,
-                'data' => []
-            ]);
+        if (!$doc->file_path || !Storage::disk('public')->exists($doc->file_path)) {
+            return response()->json(['message' => 'الملف غير موجود'], 404);
         }
 
-        $results = Document::query()
-            ->select([
-                'id',
-                'type',
-                'judgement_number',
-                'case_number',
-                'judge_name',
-                'original_filename',
-                'file_path',
-                'extract_status',
-                'created_at',
-            ])
-            ->where(function ($query) use ($q) {
-                $query->where('content_text', 'like', '%' . $q . '%')
-                      ->orWhere('judgement_number', 'like', '%' . $q . '%')
-                      ->orWhere('case_number', 'like', '%' . $q . '%')
-                      ->orWhere('judge_name', 'like', '%' . $q . '%');
-            })
-            ->latest()
-            ->limit(50)
-            ->get();
+        // كيحافظ على الاسم الأصلي فالتحميل
+        $downloadName = $doc->original_filename ?: basename($doc->file_path);
 
-        return response()->json([
-            'status' => 'ok',
-            'count' => $results->count(),
-            'data' => $results
-        ]);
+        return Storage::disk('public')->download($doc->file_path, $downloadName);
     }
 }
