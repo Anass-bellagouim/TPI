@@ -1,3 +1,4 @@
+// src/pages/EmployeeDetails.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api.js";
@@ -19,7 +20,6 @@ export default function EmployeeDetails() {
     first_name: "",
     last_name: "",
     username: "",
-    email: "",
     role: "user",
   });
 
@@ -41,7 +41,9 @@ export default function EmployeeDetails() {
     clearMsgs();
     try {
       setLoading(true);
-      const res = await api.get(`/employees/${id}`);
+
+      // ✅ مهم: endpoint الصحيح
+      const res = await api.get(`/admin/employees/${id}`);
       const u = res.data?.data || res.data;
 
       setEmployee(u);
@@ -49,7 +51,6 @@ export default function EmployeeDetails() {
         first_name: u?.first_name || "",
         last_name: u?.last_name || "",
         username: u?.username || "",
-        email: u?.email || "",
         role: u?.role || "user",
       });
     } catch (e) {
@@ -76,11 +77,11 @@ export default function EmployeeDetails() {
         first_name: form.first_name?.trim() || "",
         last_name: form.last_name?.trim() || "",
         username: form.username?.trim() || "",
-        email: form.email?.trim() ? form.email.trim() : null,
         role: form.role || "user",
+        // ❌ ما كنصيفطوش email
       };
 
-      const res = await api.patch(`/employees/${id}`, payload);
+      const res = await api.patch(`/admin/employees/${id}`, payload);
       const updated = res.data?.data || res.data;
 
       setEmployee(updated);
@@ -106,7 +107,9 @@ export default function EmployeeDetails() {
 
     try {
       setLoadingToggle(true);
-      const res = await api.patch(`/employees/${id}/toggle-active`);
+
+      // ✅ endpoint الصحيح
+      const res = await api.patch(`/admin/employees/${id}/toggle-active`);
       const updated = res.data?.data || res.data;
 
       setEmployee(updated);
@@ -131,9 +134,8 @@ export default function EmployeeDetails() {
     try {
       setLoadingReset(true);
 
-      // ✅ بلا body نهائياً
-      const res = await api.patch(`/employees/${id}/password`);
-
+      // ✅ endpoint الصحيح
+      const res = await api.patch(`/admin/employees/${id}/password`);
       setInfo(
         res.data?.message ||
           'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب التوكنز القديمة بنجاح.'
@@ -154,7 +156,9 @@ export default function EmployeeDetails() {
 
     try {
       setLoadingDelete(true);
-      await api.delete(`/employees/${id}`);
+
+      // ✅ endpoint الصحيح
+      await api.delete(`/admin/employees/${id}`);
       navigate("/employees", { replace: true });
     } catch (e) {
       setError(e?.response?.data?.message || "وقع خطأ أثناء حذف الموظف.");
@@ -207,7 +211,6 @@ export default function EmployeeDetails() {
         </div>
       )}
 
-      {/* إذا الموظف ما كاينش */}
       {!employee && !loading && (
         <div className="card">
           <div style={{ fontWeight: 700, marginBottom: 8 }}>الموظف غير موجود</div>
@@ -220,7 +223,6 @@ export default function EmployeeDetails() {
         </div>
       )}
 
-      {/* Status Card */}
       {employee && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="rowActions" style={{ justifyContent: "space-between" }}>
@@ -252,18 +254,13 @@ export default function EmployeeDetails() {
                 disabled={busy}
                 title="توقيف/تفعيل الحساب (مع سحب التوكنز)"
               >
-                {loadingToggle
-                  ? "..."
-                  : employee.is_active
-                  ? "إيقاف الحساب"
-                  : "تفعيل الحساب"}
+                {loadingToggle ? "..." : employee.is_active ? "إيقاف الحساب" : "تفعيل الحساب"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Update */}
       {employee && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ marginBottom: 10, fontWeight: 700 }}>معلومات الموظف</div>
@@ -275,9 +272,7 @@ export default function EmployeeDetails() {
                 <input
                   className="input"
                   value={form.first_name}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, first_name: e.target.value }))
-                  }
+                  onChange={(e) => setForm((p) => ({ ...p, first_name: e.target.value }))}
                   disabled={busy}
                 />
               </div>
@@ -287,9 +282,7 @@ export default function EmployeeDetails() {
                 <input
                   className="input"
                   value={form.last_name}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, last_name: e.target.value }))
-                  }
+                  onChange={(e) => setForm((p) => ({ ...p, last_name: e.target.value }))}
                   disabled={busy}
                 />
               </div>
@@ -299,24 +292,9 @@ export default function EmployeeDetails() {
                 <input
                   className="input"
                   value={form.username}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, username: e.target.value }))
-                  }
+                  onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
                   disabled={busy}
                 />
-              </div>
-
-              <div className="field">
-                <div className="label">Email</div>
-                <input
-                  className="input"
-                  value={form.email || ""}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, email: e.target.value }))
-                  }
-                  disabled={busy}
-                />
-                <div className="help">اختياري (غالباً للـ admin فقط)</div>
               </div>
 
               <div className="field">
@@ -324,14 +302,15 @@ export default function EmployeeDetails() {
                 <select
                   className="select"
                   value={form.role}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, role: e.target.value }))
-                  }
+                  onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
                   disabled={busy}
                 >
                   <option value="admin">admin</option>
                   <option value="user">user</option>
                 </select>
+                <div className="help" style={{ marginTop: 6 }}>
+                  ملاحظة: email محيد نهائياً من الواجهة.
+                </div>
               </div>
             </div>
 
@@ -363,8 +342,7 @@ export default function EmployeeDetails() {
             </div>
 
             <div className="help" style={{ marginTop: 10 }}>
-              ملاحظة: Reset Password كيرجع كلمة المرور لـ <strong>123456</strong> وكيحيد جميع
-              التوكنز باش الموظف يعاود يدير login.
+              ملاحظة: Reset Password كيرجع كلمة المرور لـ <strong>123456</strong> وكيحيد جميع التوكنز.
             </div>
           </form>
         </div>

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
-    // GET /api/employees?search=
+    // GET /api/admin/employees?search=
     public function index(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
@@ -21,7 +21,6 @@ class EmployeeController extends Controller
             $q->where(function ($qq) use ($search) {
                 $qq->where('first_name', 'like', "%{$search}%")
                    ->orWhere('last_name', 'like', "%{$search}%")
-                   ->orWhere('name', 'like', "%{$search}%")
                    ->orWhere('username', 'like', "%{$search}%")
                    ->orWhere('email', 'like', "%{$search}%");
             });
@@ -30,22 +29,13 @@ class EmployeeController extends Controller
         $page = $q->orderByDesc('id')->paginate(20);
 
         $page->getCollection()->transform(function (User $u) {
-            return [
-                'id' => $u->id,
-                'full_name' => $u->name ?? remind_full_name($u),
-                'first_name' => $u->first_name,
-                'last_name' => $u->last_name,
-                'username' => $u->username,
-                'email' => $u->email,
-                'role' => $u->role,
-                'is_active' => (bool) ($u->is_active ?? true),
-            ];
+            return $this->shapeUser($u);
         });
 
         return response()->json($page);
     }
 
-    // POST /api/employees
+    // POST /api/admin/employees
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -53,21 +43,18 @@ class EmployeeController extends Controller
             'last_name'  => ['required', 'string', 'max:255'],
             'username'   => ['required', 'string', 'max:255', 'unique:users,username'],
 
-            // ✅ email nullable globally, لكن admin لازم
+            // email nullable عامة
             'email'      => ['nullable', 'email', 'max:255', 'unique:users,email'],
 
             'role'       => ['required', Rule::in(['admin', 'user'])],
 
-            // ✅ مهم: نخلي password OPTIONAL هنا
-            // - admin: إذا بغيتيه required، كنفرضه تحت (منطق)
-            // - user: default 123456
+            // password nullable هنا (غادي نفرضه حسب role)
             'password'   => ['nullable', 'string', 'min:6', 'confirmed'],
 
             'is_active'  => ['sometimes', 'boolean'],
         ]);
 
-        // ✅ rules:
-        // admin لازم email + (اختياري لكن مستحسن) لازم password
+        // rules by role
         if (($data['role'] ?? null) === 'admin') {
             if (empty($data['email'])) {
                 return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
@@ -77,9 +64,11 @@ class EmployeeController extends Controller
             }
         }
 
-        // user: ما عندوش email + password default 123456 (إلا ما تعطاتش)
         if (($data['role'] ?? null) === 'user') {
+            // user: بلا email
             $data['email'] = null;
+
+            // default password إذا ما تعطاتش
             if (empty($data['password'])) {
                 $data['password'] = '123456';
             }
@@ -88,45 +77,28 @@ class EmployeeController extends Controller
         $u = new User();
         $u->first_name = $data['first_name'];
         $u->last_name  = $data['last_name'];
-        $u->name       = trim($data['first_name'] . ' ' . $data['last_name']);
         $u->username   = $data['username'];
         $u->email      = $data['email'] ?? null;
         $u->role       = $data['role'];
         $u->password   = Hash::make($data['password']);
-        $u->is_active  = $data['is_active'] ?? true;
+        $u->is_active  = array_key_exists('is_active', $data) ? (bool)$data['is_active'] : true;
         $u->save();
 
         return response()->json([
             'message' => 'تم إنشاء الموظف بنجاح',
-            'data' => [
-                'id' => $u->id,
-                'full_name' => $u->name,
-                'first_name' => $u->first_name,
-                'last_name' => $u->last_name,
-                'username' => $u->username,
-                'email' => $u->email,
-                'role' => $u->role,
-                'is_active' => (bool) $u->is_active,
-            ],
+            'data' => $this->shapeUser($u),
         ], 201);
     }
 
-    // GET /api/employees/{user}
+    // GET /api/admin/employees/{user}
     public function show(User $user)
     {
         return response()->json([
-            'id' => $user->id,
-            'full_name' => $user->name ?? remind_full_name($user),
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'username' => $user->username,
-            'email' => $user->email,
-            'role' => $user->role,
-            'is_active' => (bool) ($user->is_active ?? true),
+            'data' => $this->shapeUser($user),
         ]);
     }
 
-    // PATCH /api/employees/{user}
+    // PATCH /api/admin/employees/{user}
     public function update(Request $request, User $user)
     {
         $data = $request->validate([
@@ -148,15 +120,14 @@ class EmployeeController extends Controller
         }
 
         /**
-         * ✅ email rules:
-         * - إذا role=admin => email لازم يكون موجود
-         * - إذا role=user  => email = null دائماً
+         * email rules:
+         * - user => null دائماً
+         * - admin => email لازم
          */
         if (($user->role ?? null) === 'user') {
-            // user ما كياخدش email نهائياً
             $user->email = null;
         } else {
-            // admin: إذا تصيفط email كنحدثوه، وإذا ما تصيفطش كنخليه كيفما هو
+            // admin: إذا جا email فـ request
             if (array_key_exists('email', $data)) {
                 if (empty($data['email'])) {
                     return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
@@ -164,7 +135,7 @@ class EmployeeController extends Controller
                 $user->email = $data['email'];
             }
 
-            // ✅ مهم: إلا تبدّل role ل admin وما عندوش email أصلاً => نرفض
+            // إذا تبدل role ل admin وما عندوش email أصلاً
             if (empty($user->email)) {
                 return response()->json(['message' => 'Email إجباري للـ admin.'], 422);
             }
@@ -172,57 +143,42 @@ class EmployeeController extends Controller
 
         if (array_key_exists('is_active', $data)) $user->is_active = (bool) $data['is_active'];
 
-        // keep name consistent
-        $user->name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-
         $user->save();
 
         return response()->json([
             'message' => 'تم تحديث الموظف بنجاح',
-            'data' => [
-                'id' => $user->id,
-                'full_name' => $user->name,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'username' => $user->username,
-                'email' => $user->email,
-                'role' => $user->role,
-                'is_active' => (bool) ($user->is_active ?? true),
-            ],
+            'data' => $this->shapeUser($user),
         ]);
     }
 
     /**
-     * PATCH /api/employees/{user}/password
-     * ✅ Reset default password = "123456" + revoke tokens
-     * IMPORTANT: ما كنقبلو حتى password من client
+     * PATCH /api/admin/employees/{user}/password
+     * Reset default password = 123456 + revoke tokens
      */
     public function resetPassword(Request $request, User $user)
     {
-        // اختياري: ما تخليش reset على admin من هنا
         if ($user->role === 'admin') {
             return response()->json([
                 'message' => 'لا يمكن إعادة تعيين كلمة مرور admin من هنا.',
             ], 403);
         }
 
-        $defaultPassword = '123456';
-
-        $user->password = Hash::make($defaultPassword);
+        $user->password = Hash::make('123456');
         $user->save();
 
-        // revoke all tokens
-        $user->tokens()->delete();
+        // revoke tokens (Sanctum)
+        if (method_exists($user, 'tokens')) {
+            $user->tokens()->delete();
+        }
 
         return response()->json([
             'message' => 'تمت إعادة تعيين كلمة المرور إلى 123456 وتم سحب التوكنز القديمة.',
         ]);
     }
 
-    // PATCH /api/employees/{user}/toggle-active
+    // PATCH /api/admin/employees/{user}/toggle-active
     public function toggleActive(User $user)
     {
-        // اختياري: ما تخليش admin يتوقف
         if ($user->role === 'admin') {
             return response()->json([
                 'message' => 'لا يمكن توقيف حساب admin.',
@@ -232,39 +188,46 @@ class EmployeeController extends Controller
         $user->is_active = !$user->is_active;
         $user->save();
 
-        // revoke tokens immediately
-        $user->tokens()->delete();
+        if (method_exists($user, 'tokens')) {
+            $user->tokens()->delete();
+        }
 
         return response()->json([
             'message' => $user->is_active ? 'تم تفعيل الحساب بنجاح.' : 'تم توقيف الحساب بنجاح.',
-            'data' => [
-                'id' => $user->id,
-                'full_name' => $user->name ?? remind_full_name($user),
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'username' => $user->username,
-                'email' => $user->email,
-                'role' => $user->role,
-                'is_active' => (bool) $user->is_active,
-            ],
+            'data' => $this->shapeUser($user),
         ]);
     }
 
-    // DELETE /api/employees/{user}
+    // DELETE /api/admin/employees/{user}
     public function destroy(User $user)
     {
-        $user->tokens()->delete();
+        if (method_exists($user, 'tokens')) {
+            $user->tokens()->delete();
+        }
+
         $user->delete();
 
         return response()->json(['message' => 'تم حذف الموظف بنجاح']);
     }
-}
 
-/**
- * Helper صغيرة باش ما نكرّروش trim
- */
-if (!function_exists('remind_full_name')) {
-    function remind_full_name(User $u): string
+    /**
+     * ✅ Formatter واحد للـ API
+     */
+    private function shapeUser(User $u): array
+    {
+        return [
+            'id' => $u->id,
+            'full_name' => $this->fullName($u),
+            'first_name' => $u->first_name,
+            'last_name' => $u->last_name,
+            'username' => $u->username,
+            'email' => $u->email,
+            'role' => $u->role,
+            'is_active' => (bool) ($u->is_active ?? true),
+        ];
+    }
+
+    private function fullName(User $u): string
     {
         return trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''));
     }

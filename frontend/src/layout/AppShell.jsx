@@ -1,6 +1,17 @@
-import React, { useContext, useMemo, useState, useEffect } from "react";
-import { NavLink, useNavigate, Outlet, useLocation } from "react-router-dom";
+import React, { useContext, useMemo, useState, useEffect, useRef } from "react";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "../auth/AuthContext.jsx";
+
+function UserIcon({ className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path
+        d="M12 12a4.25 4.25 0 1 0-4.25-4.25A4.26 4.26 0 0 0 12 12Zm0 2c-4.14 0-7.5 2.2-7.5 4.9A1.1 1.1 0 0 0 5.6 20h12.8a1.1 1.1 0 0 0 1.1-1.1C19.5 16.2 16.14 14 12 14Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 export default function AppShell() {
   const nav = useNavigate();
@@ -10,17 +21,35 @@ export default function AppShell() {
   const user = auth?.user || null;
 
   const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
 
-  // سُدّ المينو ملي كتبدّل الصفحة
+  // ✅ Close menu on route change
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
 
-  const linkClass = ({ isActive }) => `navlink ${isActive ? "navlink--active" : ""}`;
+  // ✅ Close menu when clicking outside
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!open) return;
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // ✅ Close menu with ESC
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const displayName = useMemo(() => {
     if (!user) return "غير مسجل";
-    // AuthController كيرجع first_name/last_name غالباً
     const full = `${user.first_name || ""} ${user.last_name || ""}`.trim();
     return full || user.full_name || user.username || user.email || "مستخدم";
   }, [user]);
@@ -47,33 +76,17 @@ export default function AppShell() {
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") nav("/search");
             }}
+            title="الرجوع إلى البحث"
           >
-            <div className="brand__badge">م</div>
+            <img className="logo" src="/img/Logo.png" alt="وزارة العدل" loading="eager" />
             <div className="brand__titles">
-              <h1>نظام إدارة وثائق المحكمة الابتدائية المغربية</h1>
-              <p>رفع الوثائق • استخراج النص • البحث • عرض التفاصيل</p>
+              <h1>المحكمة الابتدائية المغربية</h1>
+              <p>نظام إدارة الوثائق</p>
             </div>
           </div>
 
-          {/* CENTER: quick links */}
-          <nav className="navlinks">
-            <NavLink to="/search" className={linkClass}>
-              الوثائق
-            </NavLink>
-            <NavLink to="/add" className={linkClass}>
-              إضافة وثيقة
-            </NavLink>
-
-            {/* admin only */}
-            {user?.role === "admin" && (
-              <NavLink to="/employees" className={linkClass}>
-                الموظفون
-              </NavLink>
-            )}
-          </nav>
-
           {/* LEFT: user dropdown */}
-          <div className="userBox">
+          <div className="userBox" ref={menuRef}>
             <button
               className="userBtn"
               type="button"
@@ -82,93 +95,78 @@ export default function AppShell() {
               aria-expanded={open ? "true" : "false"}
             >
               <div className="userAvatar" aria-hidden="true">
-                {(displayName?.[0] || "U").toUpperCase()}
+                <UserIcon className="userAvatar__icon" />
               </div>
+
               <div className="userMeta">
                 <div className="userName">{displayName}</div>
-                <div className="userRole">{user?.role || "guest"}</div>
+                <div className="userRole">{user ? user.role : "guest"}</div>
               </div>
+
               <span className="chev" aria-hidden="true">
                 ▾
               </span>
             </button>
 
             {open && (
-              <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
-                {/* إذا ما مسجلش الدخول، غير خليه يرجع login */}
+              <div className="menu" role="menu">
                 {!user && (
-                  <>
-                    <button
-                      className="menuItem"
-                      onClick={() => {
-                        setOpen(false);
-                        nav("/login");
-                      }}
-                    >
-                      تسجيل الدخول
-                    </button>
-                  </>
+                  <button
+                    className="menuItem"
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      nav("/login");
+                    }}
+                  >
+                    تسجيل الدخول
+                  </button>
                 )}
 
                 {!!user && (
                   <>
-                    <button
-                      className="menuItem"
-                      onClick={() => {
-                        setOpen(false);
-                        nav("/search");
-                      }}
-                    >
-                      الوثائق (بحث متقدم)
+                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/search"))}>
+                      بحث عن وثيقة
                     </button>
 
-                    <button
-                      className="menuItem"
-                      onClick={() => {
-                        setOpen(false);
-                        nav("/add");
-                      }}
-                    >
+                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/add"))}>
                       إضافة وثيقة
                     </button>
 
                     {user?.role === "admin" && (
                       <>
                         <div className="menuSep" />
-                        <button
-                          className="menuItem"
-                          onClick={() => {
-                            setOpen(false);
-                            nav("/employees");
-                          }}
-                        >
-                          الموظفون (بحث + لائحة)
+                        <div className="menuTitle">لوحة الإدارة</div>
+
+                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/employees"))}>
+                          بحث عن موظف
                         </button>
-                        <button
-                          className="menuItem"
-                          onClick={() => {
-                            setOpen(false);
-                            nav("/employees/add");
-                          }}
-                        >
+
+                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/employees/add"))}>
                           إضافة موظف
+                        </button>
+
+                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/divisions"))}>
+                          إدارة الشعب
+                        </button>
+
+                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/case-types"))}>
+                          إدارة القضايا (الرموز)
+                        </button>
+
+                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/judges"))}>
+                          إدارة القضاة
                         </button>
                       </>
                     )}
 
                     <div className="menuSep" />
 
-                    <button
-                      className="menuItem"
-                      onClick={() => {
-                        setOpen(false);
-                        nav("/change-password");
-                      }}
-                    >
+                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/change-password"))}>
                       تغيير كلمة المرور
                     </button>
 
-                    <button className="menuItem danger" onClick={onLogout}>
+                    <button className="menuItem danger" type="button" onClick={onLogout}>
                       تسجيل الخروج
                     </button>
                   </>
@@ -179,7 +177,6 @@ export default function AppShell() {
         </div>
       </header>
 
-      {/* ✅ Pages كيتعرضو هنا */}
       <main className="container">
         <Outlet />
       </main>

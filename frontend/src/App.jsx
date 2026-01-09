@@ -16,6 +16,11 @@ import Employees from "./pages/Employees.jsx";
 import AddEmployee from "./pages/AddEmployee.jsx";
 import EmployeeDetails from "./pages/EmployeeDetails.jsx";
 
+// ✅ Admin pages
+import DivisionsAdmin from "./pages/DivisionsAdmin.jsx";
+import CaseTypesAdmin from "./pages/CaseTypesAdmin.jsx";
+import JudgesAdmin from "./pages/JudgesAdmin.jsx";
+
 import { AuthProvider } from "./auth/AuthContext.jsx";
 import RequireAuth from "./auth/RequireAuth.jsx";
 import RequireAdmin from "./auth/RequireAdmin.jsx";
@@ -24,31 +29,33 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* ✅ TEST (اختياري) */}
-        <Route path="/__test" element={<div style={{ padding: 40 }}>OK TEST</div>} />
-
-        {/* ✅ PUBLIC ROUTES (برا AppShell وبرا guards) */}
+        {/* ✅ PUBLIC (no AppShell) */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* ✅ APP ROUTES (داخل AppShell + guards) */}
+        {/* ✅ APP (with AppShell) */}
         <Route element={<AppShell />}>
           {/* Root */}
           <Route path="/" element={<Navigate to="/search" replace />} />
 
-          {/* Authenticated */}
+          {/* ✅ Authenticated */}
           <Route element={<RequireAuth />}>
             <Route path="/search" element={<SearchDocuments />} />
             <Route path="/add" element={<AddDocument />} />
             <Route path="/documents/:id" element={<DocumentDetails />} />
             <Route path="/change-password" element={<ChangePassword />} />
 
-            {/* Admin only */}
+            {/* ✅ Admin only */}
             <Route element={<RequireAdmin />}>
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/add" element={<AddEmployee />} />
               <Route path="/employees/:id" element={<EmployeeDetails />} />
+
+              {/* ✅ Lookups Admin */}
+              <Route path="/divisions" element={<DivisionsAdmin />} />
+              <Route path="/case-types" element={<CaseTypesAdmin />} />
+              <Route path="/judges" element={<JudgesAdmin />} />
             </Route>
           </Route>
 
@@ -56,7 +63,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/search" replace />} />
         </Route>
 
-        {/* Fallback عام */}
+        {/* Fallback عام: أي مسار خارج AppShell يرجعو للـ /search */}
         <Route path="*" element={<Navigate to="/search" replace />} />
       </Routes>
     </AuthProvider>

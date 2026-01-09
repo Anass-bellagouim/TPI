@@ -1,13 +1,10 @@
+// src/pages/Employees.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api.js";
 
 export default function Employees() {
-  const [filters, setFilters] = useState({
-    q: "",
-    role: "",
-  });
-
+  const [filters, setFilters] = useState({ q: "" });
   const [loading, setLoading] = useState(false);
   const [pageData, setPageData] = useState(null);
   const [error, setError] = useState("");
@@ -15,12 +12,13 @@ export default function Employees() {
 
   const rows = useMemo(() => pageData?.data || [], [pageData]);
 
-  async function fetchEmployees(url = "/employees", params = {}) {
+  async function fetchEmployees(url = "/admin/employees", params = {}) {
     setError("");
     setInfo("");
-
     try {
       setLoading(true);
+
+      // ✅ إذا جا URL كامل من paginator (http...) نخليه كما هو
       const res = await api.get(url, { params });
       setPageData(res.data);
 
@@ -40,19 +38,14 @@ export default function Employees() {
 
   function onSubmit(e) {
     e.preventDefault();
-
     const params = {};
     const q = filters.q?.trim();
     if (q) params.search = q;
-
-    // إذا backend ديالك كيدعم role filter زيد هاد السطر:
-    // if (filters.role) params.role = filters.role;
-
-    fetchEmployees("/employees", params);
+    fetchEmployees("/admin/employees", params);
   }
 
   useEffect(() => {
-    fetchEmployees("/employees", {});
+    fetchEmployees("/admin/employees", {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -81,29 +74,12 @@ export default function Employees() {
               <div className="label">بحث عام</div>
               <input
                 className="input"
-                placeholder="اسم / لقب / username / email"
+                placeholder="اسم / لقب / username"
                 value={filters.q}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, q: e.target.value }))
-                }
+                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
               />
-            </div>
-
-            <div className="field">
-              <div className="label">Role</div>
-              <select
-                className="select"
-                value={filters.role}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, role: e.target.value }))
-                }
-              >
-                <option value="">الكل</option>
-                <option value="admin">admin</option>
-                <option value="user">user</option>
-              </select>
               <div className="help" style={{ marginTop: 6 }}>
-                ملاحظة: Filter ديال role كيحتاج backend يدعمو (اختياري).
+                ملاحظة: بما أنك ما بغيتيش email، البحث كيخدم على الاسم/username.
               </div>
             </div>
           </div>
@@ -118,8 +94,8 @@ export default function Employees() {
               type="button"
               disabled={loading}
               onClick={() => {
-                setFilters({ q: "", role: "" });
-                fetchEmployees("/employees", {});
+                setFilters({ q: "" });
+                fetchEmployees("/admin/employees", {});
               }}
             >
               عرض الكل
@@ -148,7 +124,6 @@ export default function Employees() {
                 <th>ID</th>
                 <th>Full name</th>
                 <th>Username</th>
-                <th>Email</th>
                 <th>Role</th>
                 <th>الحالة</th>
                 <th>Actions</th>
@@ -162,15 +137,16 @@ export default function Employees() {
                 return (
                   <tr key={u.id} style={{ opacity: isActive ? 1 : 0.75 }}>
                     <td>{u.id}</td>
+
                     <td>
                       {u.full_name ||
-                        `${u.first_name || ""} ${u.last_name || ""}`.trim()}
+                        `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+                        "—"}
                     </td>
-                    <td>{u.username}</td>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
 
-                    {/* ✅ Status column */}
+                    <td>{u.username || "—"}</td>
+                    <td>{u.role || "user"}</td>
+
                     <td>
                       <span
                         style={{
@@ -189,18 +165,9 @@ export default function Employees() {
 
                     <td>
                       <div className="rowActions">
-                        <Link
-                          className="btn btnSecondary"
-                          to={`/employees/${u.id}`}
-                        >
+                        {/* ✅ هذا هو الصحيح */}
+                        <Link className="btn btnSecondary" to={`/employees/${u.id}`}>
                           تعديل
-                        </Link>
-
-                        <Link
-                          className="btn btnSecondary"
-                          to={`/employees/${u.id}#password`}
-                        >
-                          تغيير كلمة المرور
                         </Link>
                       </div>
                     </td>
@@ -210,7 +177,7 @@ export default function Employees() {
 
               {rows.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} style={{ color: "var(--muted)" }}>
+                  <td colSpan={6} style={{ color: "var(--muted)" }}>
                     لا توجد بيانات.
                   </td>
                 </tr>
@@ -218,7 +185,7 @@ export default function Employees() {
 
               {loading && (
                 <tr>
-                  <td colSpan={7} style={{ color: "var(--muted)" }}>
+                  <td colSpan={6} style={{ color: "var(--muted)" }}>
                     جاري التحميل...
                   </td>
                 </tr>

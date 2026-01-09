@@ -9,6 +9,14 @@ use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\EmployeeController;
 
+// ✅ Lookups (read-only)
+use App\Http\Controllers\Api\LookupsController;
+
+// ✅ Admin CRUD
+use App\Http\Controllers\Api\Admin\DivisionAdminController;
+use App\Http\Controllers\Api\Admin\CaseTypeAdminController;
+use App\Http\Controllers\Api\Admin\JudgeAdminController;
+
 /*
 |--------------------------------------------------------------------------
 | Health / Ping
@@ -26,12 +34,6 @@ Route::prefix('auth')->group(function () {
     // Login (username أو email)
     Route::post('/login', [AuthController::class, 'login']);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Forgot Password flow (PUBLIC)
-    |--------------------------------------------------------------------------
-    */
-
     // ✅ check username/email → role
     Route::post('/forgot-password/check', [AuthController::class, 'forgotPasswordCheck']);
 
@@ -41,11 +43,7 @@ Route::prefix('auth')->group(function () {
     // 🔒 reset password via token (ADMIN ONLY)
     Route::post('/reset-password', [PasswordController::class, 'reset']);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Authenticated user
-    |--------------------------------------------------------------------------
-    */
+    // Authenticated user
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -70,42 +68,64 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/documents/search', [DocumentController::class, 'search']);
     Route::get('/documents/{id}', [DocumentController::class, 'show']);
     Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
-    Route::put('/documents/{id}', [DocumentController::class, 'update']);
-    Route::patch('/documents/{id}', [DocumentController::class, 'update']);
+    Route::match(['put', 'patch'], '/documents/{id}', [DocumentController::class, 'update']);
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
 
     /*
     |--------------------------------------------------------------------------
-    | Judges
+    | Judges (Legacy / backward-compatible)
     |--------------------------------------------------------------------------
     */
     Route::get('/judges', [JudgeController::class, 'index']);
 
     /*
     |--------------------------------------------------------------------------
-    | Employees (ADMIN ONLY)
+    | ✅ Lookups (Read-only) - for dropdowns/autocomplete
     |--------------------------------------------------------------------------
     */
-    Route::middleware('admin')->group(function () {
+    Route::prefix('lookups')->group(function () {
+        // GET /api/lookups/divisions?active=1
+        Route::get('/divisions', [LookupsController::class, 'divisions']);
 
+        // GET /api/lookups/case-types?division_id=1&q=2101&active=1
+        Route::get('/case-types', [LookupsController::class, 'caseTypes']);
+
+        // GET /api/lookups/judges?q=محمد&active=1
+        Route::get('/judges', [LookupsController::class, 'judges']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | ✅ Admin Area (admin middleware)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('admin')->middleware('admin')->group(function () {
+
+        // ✅ Divisions CRUD
+        Route::get('/divisions', [DivisionAdminController::class, 'index']);
+        Route::post('/divisions', [DivisionAdminController::class, 'store']);
+        Route::patch('/divisions/{division}', [DivisionAdminController::class, 'update']);
+        Route::delete('/divisions/{division}', [DivisionAdminController::class, 'destroy']);
+
+        // ✅ Case Types CRUD (قضايا/رموز حسب الشعبة)
+        Route::get('/case-types', [CaseTypeAdminController::class, 'index']);
+        Route::post('/case-types', [CaseTypeAdminController::class, 'store']);
+        Route::patch('/case-types/{caseType}', [CaseTypeAdminController::class, 'update']);
+        Route::delete('/case-types/{caseType}', [CaseTypeAdminController::class, 'destroy']);
+
+        // ✅ Judges CRUD (إدارة القضاة)  ← هذا هو اللي ناقص عندك
+        Route::get('/judges', [JudgeAdminController::class, 'index']);
+        Route::post('/judges', [JudgeAdminController::class, 'store']);
+        Route::patch('/judges/{judge}', [JudgeAdminController::class, 'update']);
+        Route::delete('/judges/{judge}', [JudgeAdminController::class, 'destroy']);
+
+        // ✅ Employees (admin)
         Route::get('/employees', [EmployeeController::class, 'index']);
         Route::post('/employees', [EmployeeController::class, 'store']);
         Route::get('/employees/{user}', [EmployeeController::class, 'show']);
-
         Route::match(['put', 'patch'], '/employees/{user}', [EmployeeController::class, 'update']);
-
-        /**
-         * ✅ Reset password to default "123456" + revoke tokens
-         * IMPORTANT: This endpoint must NOT accept password from client (no body needed).
-         *
-         * Frontend call:
-         *   PATCH /api/employees/{id}/password
-         */
         Route::patch('/employees/{user}/password', [EmployeeController::class, 'resetPassword']);
-
-        // toggle active + revoke tokens
         Route::patch('/employees/{user}/toggle-active', [EmployeeController::class, 'toggleActive']);
-
         Route::delete('/employees/{user}', [EmployeeController::class, 'destroy']);
     });
 });

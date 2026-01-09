@@ -1,306 +1,367 @@
-import React, { useEffect, useMemo, useState, useContext } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import api, { API_BASE_URL } from "../api.js";
-import { AuthContext } from "../auth/AuthContext.jsx";
+import api from "../api.js";
 
-function StatusBadge({ status }) {
-  const s = (status || "").toLowerCase();
-  const map = {
-    pending: { cls: "badge badgePending", label: "في الانتظار" },
-    processing: { cls: "badge badgeProcessing", label: "قيد المعالجة" },
-    done: { cls: "badge badgeDone", label: "تم الاستخراج" },
-    failed: { cls: "badge badgeFailed", label: "فشل الاستخراج" },
-  };
-  const m = map[s] || { cls: "badge badgePending", label: status || "pending" };
-
-  return (
-    <span className={m.cls}>
-      <span className="dot" />
-      {m.label}
-    </span>
-  );
-}
-
-export default function DocumentDetails() {
+export default function EmployeeDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const auth = useContext(AuthContext);
-  const user = auth?.user;
-
   const [loading, setLoading] = useState(false);
-  const [doc, setDoc] = useState(null);
-  const [error, setError] = useState(null);
+  const [loadingToggle, setLoadingToggle] = useState(false);
+  const [loadingReset, setLoadingReset] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
 
-  const [pdfBlobUrl, setPdfBlobUrl] = useState("");
+  const [employee, setEmployee] = useState(null);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
-  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    type: "",
-    judgement_number: "",
-    case_number: "",
-    judge_name: "",
-    division: "",
-    keyword: "",
+    first_name: "",
+    last_name: "",
+    username: "",
+    email: "",
+    role: "user",
   });
 
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [msg, setMsg] = useState(null);
+  const busy = loading || loadingToggle || loadingReset || loadingDelete;
 
-  const downloadApiUrl = useMemo(() => {
-    return `${API_BASE_URL}/api/documents/${id}/download`;
-  }, [id]);
+  const fullName = useMemo(() => {
+    const fn = employee?.first_name || "";
+    const ln = employee?.last_name || "";
+    const built = `${fn} ${ln}`.trim();
+    return employee?.full_name || built || employee?.username || "";
+  }, [employee]);
 
-  async function fetchDoc() {
-    setError(null);
-    setMsg(null);
+  function clearMsgs() {
+    setError("");
+    setInfo("");
+  }
 
+  async function fetchEmployee() {
+    clearMsgs();
     try {
       setLoading(true);
-      const res = await api.get(`/documents/${id}`);
-      const d = res.data?.data || res.data;
-      setDoc(d);
 
+      // ✅ FIX: admin endpoint
+      const res = await api.get(`/admin/employees/${id}`);
+
+      const u = res.data?.data || res.data;
+
+      setEmployee(u);
       setForm({
-        type: d?.type || "",
-        judgement_number: d?.judgement_number || "",
-        case_number: d?.case_number || "",
-        judge_name: d?.judge_name || "",
-        division: d?.division || "",
-        keyword: d?.keyword || "",
+        first_name: u?.first_name || "",
+        last_name: u?.last_name || "",
+        username: u?.username || "",
+        email: u?.email || "",
+        role: u?.role || "user",
       });
-    } catch (err) {
-      const m = err?.response?.data?.message || err?.message || "تعذر تحميل تفاصيل الوثيقة.";
-      setError(m);
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status === 404) {
+        setEmployee(null);
+        setError("الموظف غير موجود (404).");
+      } else {
+        setError(e?.response?.data?.message || "وقع خطأ أثناء جلب بيانات الموظف.");
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  async function fetchPdfBlob() {
+  async function onUpdate(e) {
+    e.preventDefault();
+    clearMsgs();
+
     try {
-      const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      setPdfBlobUrl(url);
-    } catch {
-      setPdfBlobUrl("");
+      setLoading(true);
+
+      const payload = {
+        first_name: form.first_name?.trim() || "",
+        last_name: form.last_name?.trim() || "",
+        username: form.username?.trim() || "",
+        email: form.email?.trim() ? form.email.trim() : null,
+        role: form.role || "user",
+      };
+
+      // ✅ FIX: admin endpoint
+      const res = await api.patch(`/admin/employees/${id}`, payload);
+
+      const updated = res.data?.data || res.data;
+
+      setEmployee(updated);
+      setInfo("تم تحديث معلومات الموظف بنجاح.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      setError(e?.response?.data?.message || "وقع خطأ أثناء تحديث معلومات الموظف.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  useEffect(() => {
-    fetchDoc();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  async function toggleActive() {
+    clearMsgs();
+    if (!employee) return;
 
-  useEffect(() => {
-    let old = pdfBlobUrl;
-    fetchPdfBlob();
-    return () => {
-      if (old) URL.revokeObjectURL(old);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  async function onSave() {
-    setMsg(null);
-    setError(null);
+    const ok = window.confirm(
+      employee.is_active
+        ? "واش متأكد بغيتي توقف هاد الحساب؟ (غادي مايبقاش يقدر يدخول)"
+        : "واش متأكد بغيتي تفعّل هاد الحساب؟"
+    );
+    if (!ok) return;
 
     try {
-      setSaving(true);
-      const payload = {
-        type: form.type,
-        judgement_number: form.judgement_number,
-        case_number: form.case_number,
-        judge_name: form.judge_name,
-        division: form.division,
-        keyword: form.keyword || null,
-      };
+      setLoadingToggle(true);
 
-      const res = await api.put(`/documents/${id}`, payload);
+      // ✅ FIX: admin endpoint
+      const res = await api.patch(`/admin/employees/${id}/toggle-active`);
+
       const updated = res.data?.data || res.data;
 
-      setDoc((prev) => ({ ...(prev || {}), ...(updated || {}) }));
-      setEditing(false);
-      setMsg("✅ تم تعديل الوثيقة بنجاح.");
-    } catch (err) {
-      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء التعديل.";
-      setError(m);
+      setEmployee(updated);
+      setInfo(res.data?.message || "تم تحديث حالة الحساب (وتم سحب التوكنز).");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      setError(e?.response?.data?.message || "فشل تغيير حالة الحساب.");
     } finally {
-      setSaving(false);
+      setLoadingToggle(false);
+    }
+  }
+
+  async function resetPasswordDefault() {
+    clearMsgs();
+    if (!employee) return;
+
+    const ok = window.confirm(
+      'واش متأكد بغيتي ترجع كلمة المرور الافتراضية "123456"؟ (غادي يتحيدو جميع sessions ديال الموظف)'
+    );
+    if (!ok) return;
+
+    try {
+      setLoadingReset(true);
+
+      // ✅ FIX: admin endpoint
+      const res = await api.patch(`/admin/employees/${id}/password`);
+
+      setInfo(
+        res.data?.message ||
+          'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب التوكنز القديمة بنجاح.'
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      setError(e?.response?.data?.message || "وقع خطأ أثناء إعادة تعيين كلمة المرور.");
+    } finally {
+      setLoadingReset(false);
     }
   }
 
   async function onDelete() {
-    setMsg(null);
-    setError(null);
+    clearMsgs();
 
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد الوثيقة؟ هاد العملية نهائية.");
+    const ok = window.confirm("واش متأكد بغيتي تحذف هاد الموظف نهائياً؟");
     if (!ok) return;
 
     try {
-      setDeleting(true);
-      await api.delete(`/documents/${id}`);
-      navigate("/search");
-    } catch (err) {
-      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء الحذف.";
-      setError(m);
+      setLoadingDelete(true);
+
+      // ✅ FIX: admin endpoint
+      await api.delete(`/admin/employees/${id}`);
+
+      navigate("/employees", { replace: true });
+    } catch (e) {
+      setError(e?.response?.data?.message || "وقع خطأ أثناء حذف الموظف.");
     } finally {
-      setDeleting(false);
+      setLoadingDelete(false);
     }
   }
 
-  async function onDownload() {
-    setError(null);
-    try {
-      const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `document_${id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err?.response?.data?.message || "تعذر تحميل PDF.");
-    }
-  }
+  useEffect(() => {
+    fetchEmployee();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   return (
     <div>
       <div className="pageHeader">
         <div>
-          <h2>تفاصيل الوثيقة #{id}</h2>
-          <p>معاينة PDF + تحميل + تعديل/حذف.</p>
+          <h2>تعديل موظف</h2>
+          <p style={{ marginTop: 6 }}>
+            {loading && !employee ? "..." : employee ? `الموظف: ${fullName}` : "—"}
+          </p>
         </div>
 
         <div className="rowActions">
-          <Link className="btn btnSecondary" to="/search">
-            رجوع
+          <Link className="btn btnSecondary" to="/employees">
+            رجوع للائحة
           </Link>
 
-          <button className="btn btnSecondary" onClick={fetchPdfBlob} disabled={!doc}>
-            إعادة تحميل PDF
+          <button
+            className="btn btnSecondary"
+            type="button"
+            onClick={fetchEmployee}
+            disabled={busy}
+            title="إعادة تحميل"
+          >
+            {busy ? "..." : "إعادة تحميل"}
           </button>
-
-          <button className="btn btnPrimary" onClick={onDownload} disabled={!doc}>
-            تحميل PDF
-          </button>
-
-          {!editing ? (
-            <>
-              <button className="btn btnSecondary" onClick={() => setEditing(true)} disabled={!doc}>
-                تعديل
-              </button>
-
-              {user?.role === "admin" && (
-                <button className="btn btnDanger" onClick={onDelete} disabled={!doc || deleting}>
-                  {deleting ? "جاري الحذف..." : "حذف"}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button className="btn btnPrimary" onClick={onSave} disabled={saving}>
-                {saving ? "جاري الحفظ..." : "حفظ"}
-              </button>
-              <button
-                className="btn btnSecondary"
-                onClick={() => {
-                  setForm({
-                    type: doc?.type || "",
-                    judgement_number: doc?.judgement_number || "",
-                    case_number: doc?.case_number || "",
-                    judge_name: doc?.judge_name || "",
-                    division: doc?.division || "",
-                    keyword: doc?.keyword || "",
-                  });
-                  setEditing(false);
-                }}
-                disabled={saving}
-              >
-                إلغاء
-              </button>
-            </>
-          )}
         </div>
       </div>
 
-      {loading && <div className="alert alertInfo card" style={{ marginBottom: 14 }}>جاري التحميل...</div>}
-      {msg && <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>{msg}</div>}
-      {error && <div className="alert alertError card" style={{ marginBottom: 14 }}><strong>خطأ:</strong> {error}</div>}
+      {info && (
+        <div className="alert alertInfo card" style={{ marginBottom: 14 }}>
+          {info}
+        </div>
+      )}
 
-      {doc && (
-        <>
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="rowActions" style={{ justifyContent: "space-between" }}>
-              <div>
-                <strong>الحالة:</strong> <StatusBadge status={doc.extract_status} />
+      {error && (
+        <div className="alert alertError card" style={{ marginBottom: 14 }}>
+          <strong>خطأ:</strong> {error}
+        </div>
+      )}
+
+      {!employee && !loading && (
+        <div className="card">
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>الموظف غير موجود</div>
+          <div className="help" style={{ marginBottom: 12 }}>
+            ممكن يكون تحذف أو الرابط غير صحيح.
+          </div>
+          <Link className="btn btnPrimary" to="/employees">
+            رجوع للائحة الموظفين
+          </Link>
+        </div>
+      )}
+
+      {employee && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="rowActions" style={{ justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>حالة الحساب</div>
+
+              {employee.is_active ? (
+                <div>
+                  <span style={{ fontWeight: 600 }}>✅ مفعل</span>
+                  <div className="help" style={{ marginTop: 6 }}>
+                    الموظف يقدر يدير login عادي.
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <span style={{ fontWeight: 600 }}>⛔ موقوف</span>
+                  <div className="help" style={{ marginTop: 6 }}>
+                    الموظف ما يقدرش يدير login حتى تفعّلو.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rowActions">
+              <button
+                className={`btn ${employee.is_active ? "btnDanger" : "btnPrimary"}`}
+                type="button"
+                onClick={toggleActive}
+                disabled={busy}
+                title="توقيف/تفعيل الحساب (مع سحب التوكنز)"
+              >
+                {loadingToggle ? "..." : employee.is_active ? "إيقاف الحساب" : "تفعيل الحساب"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {employee && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 10, fontWeight: 700 }}>معلومات الموظف</div>
+
+          <form onSubmit={onUpdate}>
+            <div className="grid2">
+              <div className="field">
+                <div className="label">الاسم الشخصي</div>
+                <input
+                  className="input"
+                  value={form.first_name}
+                  onChange={(e) => setForm((p) => ({ ...p, first_name: e.target.value }))}
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">الاسم العائلي</div>
+                <input
+                  className="input"
+                  value={form.last_name}
+                  onChange={(e) => setForm((p) => ({ ...p, last_name: e.target.value }))}
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">Username</div>
+                <input
+                  className="input"
+                  value={form.username}
+                  onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                  disabled={busy}
+                />
+              </div>
+
+              <div className="field">
+                <div className="label">Email</div>
+                <input
+                  className="input"
+                  value={form.email || ""}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  disabled={busy}
+                />
+                <div className="help">اختياري (غالباً للـ admin فقط)</div>
+              </div>
+
+              <div className="field">
+                <div className="label">Role</div>
+                <select
+                  className="select"
+                  value={form.role}
+                  onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+                  disabled={busy}
+                >
+                  <option value="admin">admin</option>
+                  <option value="user">user</option>
+                </select>
               </div>
             </div>
 
-            {!editing ? (
-              <div style={{ marginTop: 12 }} className="kv">
-                <div><span className="k">النوع:</span> {doc.type || "—"}</div>
-                <div><span className="k">اسم الملف:</span> {doc.original_filename || "—"}</div>
-                <div><span className="k">رقم الحكم:</span> {doc.judgement_number || "—"}</div>
-                <div><span className="k">رقم الملف:</span> {doc.case_number || "—"}</div>
-                <div><span className="k">اسم القاضي:</span> {doc.judge_name || "—"}</div>
-                <div><span className="k">الشعبة:</span> {doc.division || "—"}</div>
-                <div><span className="k">الكلمة المفتاحية:</span> {doc.keyword || "—"}</div>
-                <div><span className="k">تاريخ الإضافة:</span> {doc.created_at || "—"}</div>
-              </div>
-            ) : (
-              <div className="grid2" style={{ marginTop: 12 }}>
-                <div className="field">
-                  <div className="label">النوع</div>
-                  <input className="input" value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <div className="label">رقم الحكم</div>
-                  <input className="input" value={form.judgement_number} onChange={(e) => setForm(p => ({ ...p, judgement_number: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <div className="label">رقم الملف</div>
-                  <input className="input" value={form.case_number} onChange={(e) => setForm(p => ({ ...p, case_number: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <div className="label">اسم القاضي</div>
-                  <input className="input" value={form.judge_name} onChange={(e) => setForm(p => ({ ...p, judge_name: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <div className="label">الشعبة</div>
-                  <input className="input" value={form.division} onChange={(e) => setForm(p => ({ ...p, division: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <div className="label">كلمة مفتاحية</div>
-                  <input className="input" value={form.keyword} onChange={(e) => setForm(p => ({ ...p, keyword: e.target.value }))} />
-                </div>
-              </div>
-            )}
-          </div>
+            <div className="rowActions" style={{ marginTop: 12 }}>
+              <button className="btn btnPrimary" type="submit" disabled={busy}>
+                {loading ? "..." : "حفظ التعديلات"}
+              </button>
 
-          <div className="card">
-            <div className="rowActions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-              <div>
-                <strong>معاينة PDF</strong>
-                <div className="help">إذا ما بانش PDF هنا، استعمل زر التحميل.</div>
-              </div>
-              <div className="help">
-                API: <code>{downloadApiUrl}</code>
-              </div>
+              <button
+                className="btn btnSecondary"
+                type="button"
+                onClick={resetPasswordDefault}
+                disabled={busy}
+                title='Reset password to "123456" + revoke tokens'
+              >
+                {loadingReset ? "..." : 'Reset Password (123456)'}
+              </button>
+
+              <button
+                className="btn btnDanger"
+                type="button"
+                onClick={onDelete}
+                disabled={busy}
+                style={{ marginInlineStart: "auto" }}
+                title="حذف الموظف"
+              >
+                {loadingDelete ? "..." : "حذف"}
+              </button>
             </div>
 
-            {pdfBlobUrl ? (
-              <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "#fff" }}>
-                <iframe title={`PDF_${id}`} src={pdfBlobUrl} style={{ width: "100%", height: "75vh", border: "0", display: "block" }} />
-              </div>
-            ) : (
-              <div className="alert alertInfo">تعذر عرض PDF. استعمل زر التحميل.</div>
-            )}
-          </div>
-        </>
+            <div className="help" style={{ marginTop: 10 }}>
+              ملاحظة: Reset Password كيرجع كلمة المرور لـ <strong>123456</strong> وكيحيد جميع
+              التوكنز باش الموظف يعاود يدير login.
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );
