@@ -7,12 +7,11 @@ export default function Login() {
   const location = useLocation();
   const auth = useContext(AuthContext);
 
-  const [identifier, setIdentifier] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ يرجّعك للي كنت غادي ليه قبل ما يدخلك للـ login
   const from = location.state?.from?.pathname || "/search";
 
   const submit = async (e) => {
@@ -21,9 +20,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // ✅ التصحيح الأساسي: login كيتسنى object
       await auth.login({ identifier, password });
-
       nav(from, { replace: true });
     } catch (ex) {
       const msg =
@@ -37,43 +34,55 @@ export default function Login() {
 
   return (
     <div className="authWrap">
-      <div className="card authCard">
-        <h2>تسجيل الدخول</h2>
-
-        {err && <div className="alert alertError">{err}</div>}
-
-        <form onSubmit={submit} className="form">
-          <div className="field">
-            <div className="label">Email أو Username</div>
-            <input
-              className="input"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              autoComplete="username"
-              required
-            />
+      <div className="authLayout">
+        {/* ✅ Left / Top image */}
+        <div className="authVisual">
+          <img src="img/Logo.png" alt="محكمة" />
+          <div className="authVisualOverlay">
+            <h3>المحكمة الابتدائية</h3>
+            <p>نظام تسيير الوثائق القضائية</p>
           </div>
+        </div>
 
-          <div className="field">
-            <div className="label">كلمة المرور</div>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </div>
+        {/* ✅ Login form */}
+        <div className="card authCard authCard--login">
+          <h2>تسجيل الدخول</h2>
 
-          <button className="btn btnPrimary" type="submit" disabled={loading || auth?.isLoading}>
-            {loading || auth?.isLoading ? "..." : "دخول"}
-          </button>
+          {err && <div className="alert alertError">{err}</div>}
 
-          <div className="help">
-            <Link to="/forgot-password">نسيت كلمة المرور؟</Link>
-          </div>
-        </form>
+          <form onSubmit={submit} className="form">
+            <div className="field">
+              <div className="label">اسم المستخدم أو البريد</div>
+              <input
+                className="input"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <div className="label">كلمة المرور</div>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            <button className="btn btnPrimary" type="submit" disabled={loading || auth?.isLoading}>
+              {loading || auth?.isLoading ? "..." : "دخول"}
+            </button>
+
+            <div className="help authLinks">
+              <Link to="/forgot-password">نسيت كلمة المرور؟</Link>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

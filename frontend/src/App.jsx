@@ -29,42 +29,44 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* ✅ PUBLIC (no AppShell) */}
+        {/* ✅ PUBLIC (بدون AppShell) */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* ✅ APP (with AppShell) */}
+        {/* ✅ APP (مع AppShell) */}
         <Route element={<AppShell />}>
           {/* Root */}
           <Route path="/" element={<Navigate to="/search" replace />} />
 
-          {/* ✅ Authenticated */}
+          {/* ✅ Authenticated (أي user) */}
           <Route element={<RequireAuth />}>
+            {/* Documents */}
             <Route path="/search" element={<SearchDocuments />} />
             <Route path="/add" element={<AddDocument />} />
             <Route path="/documents/:id" element={<DocumentDetails />} />
+
+            {/* Account */}
             <Route path="/change-password" element={<ChangePassword />} />
 
-            {/* ✅ Admin only */}
+            {/* ✅ Admin only (خاص الموظفين و lookups فقط) */}
             <Route element={<RequireAdmin />}>
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/add" element={<AddEmployee />} />
               <Route path="/employees/:id" element={<EmployeeDetails />} />
 
-              {/* ✅ Lookups Admin */}
               <Route path="/divisions" element={<DivisionsAdmin />} />
               <Route path="/case-types" element={<CaseTypesAdmin />} />
               <Route path="/judges" element={<JudgesAdmin />} />
             </Route>
           </Route>
 
-          {/* Fallback داخل AppShell */}
+          {/* ✅ fallback داخل AppShell */}
           <Route path="*" element={<Navigate to="/search" replace />} />
         </Route>
 
-        {/* Fallback عام: أي مسار خارج AppShell يرجعو للـ /search */}
-        <Route path="*" element={<Navigate to="/search" replace />} />
+        {/* ✅ fallback خارج AppShell (أي واحد ماشي logged in) */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>
   );

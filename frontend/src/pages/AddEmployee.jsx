@@ -1,5 +1,5 @@
 // src/pages/AddEmployee.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api.js";
 
@@ -25,41 +25,78 @@ function formatLaravelErrors(errorsObj) {
   return lines.join(" | ");
 }
 
+const EMPTY_FORM = {
+  first_name: "",
+  last_name: "",
+  username: "",
+  role: "user",
+  email: "", // ✅ NEW
+  password: "",
+  password_confirmation: "",
+};
+
 export default function AddEmployee() {
   const nav = useNavigate();
 
-  const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    username: "",
-    role: "user",
-    password: "",
-    password_confirmation: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formKey, setFormKey] = useState(1);
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  const usernamePreview = useMemo(
-    () => sanitizeUsername(form.username),
-    [form.username]
-  );
+  const isAdmin = form.role === "admin";
+
+  const usernamePreview = useMemo(() => sanitizeUsername(form.username), [form.username]);
+
+  function resetForm() {
+    setForm(EMPTY_FORM);
+    setErr("");
+    setMsg("");
+    setFormKey((k) => k + 1);
+  }
+
+  useEffect(() => {
+    resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ إذا role رجع user: حيد email من الفورم باش مايبقاش كيتصيفط
+  useEffect(() => {
+    if (!isAdmin && form.email) {
+      setForm((p) => ({ ...p, email: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  // ✅ password UX
+  useEffect(() => {
+    if (!form.password && form.password_confirmation) {
+      setForm((p) => ({ ...p, password_confirmation: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.password]);
 
   function validate() {
     if (!form.first_name.trim()) return "الاسم (first_name) مطلوب.";
     if (!form.last_name.trim()) return "النسب (last_name) مطلوب.";
     if (!form.username.trim()) return "username مطلوب.";
-    if (!sanitizeUsername(form.username.trim()))
-      return "username غير صالح. استعمل غير حروف/أرقام/_/-";
+    if (!sanitizeUsername(form.username.trim())) return "username غير صالح. استعمل غير حروف/أرقام/_/-";
 
-    // ✅ password optional: إذا خليه خاوي => backend يقدر يدير default 123456
-    if (form.password) {
-      if (form.password.length < 6)
-        return "كلمة المرور خاصها تكون على الأقل 6 حروف.";
-      if (form.password !== form.password_confirmation)
-        return "تأكيد كلمة المرور غير مطابق.";
+    // ✅ email required فقط للأدمين
+    if (isAdmin) {
+      if (!form.email.trim()) return "Email مطلوب للأدمين.";
+      // check بسيط
+      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+      if (!ok) return "Email غير صالح.";
     }
+
+    // ✅ password optional
+    if (form.password) {
+      if (form.password.length < 6) return "كلمة المرور خاصها تكون على الأقل 6 حروف.";
+      if (form.password !== form.password_confirmation) return "تأكيد كلمة المرور غير مطابق.";
+    }
+
     return "";
   }
 
@@ -76,13 +113,12 @@ export default function AddEmployee() {
       last_name: form.last_name.trim(),
       username: sanitizeUsername(form.username),
       role: form.role,
-      // ✅ ما كنصيفطوش email نهائياً
-      // ✅ password optional
+
+      // ✅ email كيتصيفط غير للأدمين
+      ...(isAdmin ? { email: form.email.trim() } : {}),
+
       ...(form.password
-        ? {
-            password: form.password,
-            password_confirmation: form.password_confirmation,
-          }
+        ? { password: form.password, password_confirmation: form.password_confirmation }
         : {}),
     };
 
@@ -91,15 +127,12 @@ export default function AddEmployee() {
       await api.post("/admin/employees", payload);
 
       setMsg("✅ تم إنشاء الموظف بنجاح.");
+      resetForm();
       setTimeout(() => nav("/employees"), 600);
     } catch (e2) {
       const apiMsg = e2?.response?.data?.message;
       const apiErrors = formatLaravelErrors(e2?.response?.data?.errors);
-      setErr(
-        apiErrors
-          ? `${apiMsg || "فشل إنشاء الموظف."} — ${apiErrors}`
-          : apiMsg || "فشل إنشاء الموظف."
-      );
+      setErr(apiErrors ? `${apiMsg || "فشل إنشاء الموظف."} — ${apiErrors}` : apiMsg || "فشل إنشاء الموظف.");
     } finally {
       setLoading(false);
     }
@@ -119,29 +152,20 @@ export default function AddEmployee() {
         </div>
       </div>
 
-      {msg && (
-        <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>
-          {msg}
-        </div>
-      )}
-      {err && (
-        <div className="alert alertError card" style={{ marginBottom: 14 }}>
-          <strong>خطأ:</strong> {err}
-        </div>
-      )}
+      {msg && <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>{msg}</div>}
+      {err && <div className="alert alertError card" style={{ marginBottom: 14 }}><strong>خطأ:</strong> {err}</div>}
 
       <div className="card">
-        <form onSubmit={submit} className="form">
+        <form key={formKey} onSubmit={submit} className="form">
           <div className="grid2">
             <div className="field">
               <div className="label">الاسم (first_name)</div>
               <input
                 className="input"
                 value={form.first_name}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, first_name: e.target.value }))
-                }
+                onChange={(e) => setForm((p) => ({ ...p, first_name: e.target.value }))}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -150,10 +174,9 @@ export default function AddEmployee() {
               <input
                 className="input"
                 value={form.last_name}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, last_name: e.target.value }))
-                }
+                onChange={(e) => setForm((p) => ({ ...p, last_name: e.target.value }))}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -162,19 +185,16 @@ export default function AddEmployee() {
               <input
                 className="input"
                 value={form.username}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, username: e.target.value }))
-                }
+                onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
                 placeholder="مثال: anass_aitbelagouim"
                 required
+                disabled={loading}
+                autoComplete="off"
               />
               <div className="help">
-                مسموح غير: حروف/أرقام/_/-{" "}
-                {form.username &&
-                usernamePreview !== form.username.trim().toLowerCase() ? (
-                  <>
-                    — سيتم حفظه كـ: <b>{usernamePreview || "(فارغ)"}</b>
-                  </>
+                مسموح غير: حروف/أرقام/_/-
+                {form.username && usernamePreview !== form.username.trim().toLowerCase() ? (
+                  <> — سيتم حفظه كـ: <b>{usernamePreview || "(فارغ)"}</b></>
                 ) : null}
               </div>
             </div>
@@ -184,9 +204,8 @@ export default function AddEmployee() {
               <select
                 className="select"
                 value={form.role}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, role: e.target.value }))
-                }
+                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+                disabled={loading}
               >
                 <option value="user">user</option>
                 <option value="admin">admin</option>
@@ -194,16 +213,34 @@ export default function AddEmployee() {
               <div className="help">⚠️ admin عندو صلاحيات كاملة.</div>
             </div>
 
+            {/* ✅ NEW: Email يظهر غير للأدمين */}
+            {isAdmin && (
+              <div className="field">
+                <div className="label">Email (Admin فقط)</div>
+                <input
+                  className="input"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="admin@example.com"
+                  required
+                  disabled={loading}
+                  autoComplete="off"
+                />
+                <div className="help">مطلوب للأدمين باش Reset Password يقدر يخدم.</div>
+              </div>
+            )}
+
             <div className="field">
               <div className="label">كلمة المرور (اختياري)</div>
               <input
                 className="input"
                 type="password"
                 value={form.password}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, password: e.target.value }))
-                }
+                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
                 placeholder='إلا خليتيها خاوية → default "123456"'
+                disabled={loading}
+                autoComplete="new-password"
               />
             </div>
 
@@ -213,13 +250,9 @@ export default function AddEmployee() {
                 className="input"
                 type="password"
                 value={form.password_confirmation}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    password_confirmation: e.target.value,
-                  }))
-                }
-                disabled={!form.password}
+                onChange={(e) => setForm((p) => ({ ...p, password_confirmation: e.target.value }))}
+                disabled={loading || !form.password}
+                autoComplete="new-password"
               />
             </div>
           </div>
@@ -228,11 +261,13 @@ export default function AddEmployee() {
             <button className="btn btnPrimary" disabled={loading}>
               {loading ? "جاري الحفظ..." : "إنشاء"}
             </button>
+            <button className="btn btnSecondary" type="button" disabled={loading} onClick={resetForm}>
+              مسح
+            </button>
           </div>
 
           <div className="help" style={{ marginTop: 10 }}>
-            ملاحظة: البريد الإلكتروني محيد نهائياً للموظفين (user). كلمة المرور إذا خلياتها
-            فارغة غادي تكون <b>123456</b>.
+            ملاحظة: Email كيبان وكيولي مطلوب غير للـ <b>admin</b>. أما <b>user</b> ماعندو حتى email.
           </div>
         </form>
       </div>

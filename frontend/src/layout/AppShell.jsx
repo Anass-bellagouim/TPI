@@ -23,12 +23,8 @@ export default function AppShell() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // ✅ Close menu on route change
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  useEffect(() => setOpen(false), [location.pathname]);
 
-  // ✅ Close menu when clicking outside
   useEffect(() => {
     function onDocClick(e) {
       if (!open) return;
@@ -39,7 +35,6 @@ export default function AppShell() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  // ✅ Close menu with ESC
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") setOpen(false);
@@ -54,6 +49,20 @@ export default function AppShell() {
     return full || user.full_name || user.username || user.email || "مستخدم";
   }, [user]);
 
+  const pathname = location.pathname;
+
+  const isActive = (path, { exact = false } = {}) => {
+    if (!path) return false;
+    if (exact) return pathname === path;
+    if (pathname === path) return true;
+    return pathname.startsWith(path + "/");
+  };
+
+  const go = (to) => {
+    setOpen(false);
+    nav(to);
+  };
+
   async function onLogout() {
     setOpen(false);
     try {
@@ -67,7 +76,6 @@ export default function AppShell() {
     <div className="shell rtl">
       <header className="navbar">
         <div className="navbar__inner">
-          {/* RIGHT: logo + title */}
           <div
             className="brand"
             role="button"
@@ -85,7 +93,6 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* LEFT: user dropdown */}
           <div className="userBox" ref={menuRef}>
             <button
               className="userBtn"
@@ -110,51 +117,49 @@ export default function AppShell() {
 
             {open && (
               <div className="menu" role="menu">
-                {!user && (
-                  <button
-                    className="menuItem"
-                    type="button"
-                    onClick={() => {
-                      setOpen(false);
-                      nav("/login");
-                    }}
-                  >
+                {!user ? (
+                  <button className="menuItem" type="button" onClick={() => go("/login")}>
                     تسجيل الدخول
                   </button>
-                )}
-
-                {!!user && (
+                ) : (
                   <>
-                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/search"))}>
+                    <div className="menuTitle">الوثائق</div>
+
+                    <button className={`menuItem ${isActive("/search", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/search")}>
                       بحث عن وثيقة
                     </button>
 
-                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/add"))}>
+                    <button className={`menuItem ${isActive("/add", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/add")}>
                       إضافة وثيقة
                     </button>
 
-                    {user?.role === "admin" && (
+                    {String(user?.role || "").toLowerCase() === "admin" && (
                       <>
                         <div className="menuSep" />
-                        <div className="menuTitle">لوحة الإدارة</div>
 
-                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/employees"))}>
+                        <div className="menuTitle">الموظفون</div>
+
+                        <button className={`menuItem ${isActive("/employees", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/employees")}>
                           بحث عن موظف
                         </button>
 
-                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/employees/add"))}>
+                        <button className={`menuItem ${isActive("/employees/add", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/employees/add")}>
                           إضافة موظف
                         </button>
 
-                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/divisions"))}>
+                        <div className="menuSep" />
+
+                        <div className="menuTitle">لوحة الإدارة</div>
+
+                        <button className={`menuItem ${isActive("/divisions") ? "active" : ""}`} type="button" onClick={() => go("/divisions")}>
                           إدارة الشعب
                         </button>
 
-                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/case-types"))}>
-                          إدارة القضايا (الرموز)
+                        <button className={`menuItem ${isActive("/case-types") ? "active" : ""}`} type="button" onClick={() => go("/case-types")}>
+                          إدارة القضايا
                         </button>
 
-                        <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/judges"))}>
+                        <button className={`menuItem ${isActive("/judges") ? "active" : ""}`} type="button" onClick={() => go("/judges")}>
                           إدارة القضاة
                         </button>
                       </>
@@ -162,7 +167,9 @@ export default function AppShell() {
 
                     <div className="menuSep" />
 
-                    <button className="menuItem" type="button" onClick={() => (setOpen(false), nav("/change-password"))}>
+                    <div className="menuTitle">الحساب</div>
+
+                    <button className={`menuItem ${isActive("/change-password", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/change-password")}>
                       تغيير كلمة المرور
                     </button>
 

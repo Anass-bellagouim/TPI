@@ -22,7 +22,6 @@ function extractJudgementParts(j) {
 
 /**
  * ✅ Remote autocomplete for Judges
- * - fetchOptions(query) => string[]
  */
 function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabled }) {
   const wrapRef = useRef(null);
@@ -93,6 +92,19 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
             onChange?.(e.target.value);
           }}
           onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (open && active >= 0 && filtered[active]) {
+                e.preventDefault();
+                onChange?.(filtered[active]);
+                setQ(filtered[active]);
+                setOpen(false);
+                setActive(-1);
+              } else {
+                e.preventDefault();
+              }
+              return;
+            }
+
             if (e.key === "Escape") {
               setOpen(false);
               setActive(-1);
@@ -111,15 +123,6 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
               setOpen(true);
               setActive((i) => (i <= 0 ? filtered.length - 1 : i - 1));
               return;
-            }
-            if (e.key === "Enter") {
-              if (open && active >= 0 && filtered[active]) {
-                e.preventDefault();
-                onChange?.(filtered[active]);
-                setQ(filtered[active]);
-                setOpen(false);
-                setActive(-1);
-              }
             }
           }}
         />
@@ -160,10 +163,11 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
 }
 
 /**
- * ✅ Remote case-type autocomplete filtered by division_id
- * - value stored = code
+ * ✅ CaseType autocomplete (Global)
+ * - كتقدر تكتب الاسم ولا الرمز
+ * - إذا divisionId موجود: نفلتر الأنواع بهاد الشعبة
  */
-function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
+function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -172,7 +176,6 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // show selected code by default
     if (!value) setQ("");
     else if (!q) setQ(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,14 +194,16 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
   }, []);
 
   useEffect(() => {
-    if (!open || disabled || !divisionId) return;
+    if (!open || disabled) return;
 
     const t = setTimeout(async () => {
       try {
         setLoading(true);
-        const res = await api.get("/lookups/case-types", {
-          params: { division_id: divisionId, q: q || "", active: 1 },
-        });
+
+        const params = { q: q || "", active: 1 };
+        if (divisionId) params.division_id = divisionId;
+
+        const res = await api.get("/lookups/case-types", { params });
         const data = res.data?.data || [];
         setItems(Array.isArray(data) ? data : []);
       } finally {
@@ -216,7 +221,13 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
     setQ(`${it.name} (${it.code})`);
     setOpen(false);
     setActive(-1);
+    onPick?.(it);
   }
+
+  const divisionNameOf = (division_id) => {
+    const d = (divisions || []).find((x) => String(x.id) === String(division_id));
+    return d?.name || "";
+  };
 
   return (
     <div className="ac" ref={wrapRef}>
@@ -224,15 +235,24 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
         <input
           className="ac__input"
           value={q}
-          placeholder={divisionId ? "اكتب اسم النوع أو الرمز..." : "اختار الشعبة أولا"}
-          disabled={disabled || !divisionId}
-          onFocus={() => divisionId && setOpen(true)}
+          placeholder={divisionId ? "اكتب نوع القضية داخل هاد الشعبة..." : "اكتب نوع القضية (بحث عام)..."}
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
           onChange={(e) => {
             setQ(e.target.value);
             setOpen(true);
             setActive(-1);
           }}
           onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (open && active >= 0 && filtered[active]) {
+                e.preventDefault();
+                commit(filtered[active]);
+              } else {
+                e.preventDefault();
+              }
+              return;
+            }
             if (e.key === "Escape") {
               setOpen(false);
               setActive(-1);
@@ -252,31 +272,19 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
               setActive((i) => (i <= 0 ? filtered.length - 1 : i - 1));
               return;
             }
-            if (e.key === "Enter") {
-              if (open && active >= 0 && filtered[active]) {
-                e.preventDefault();
-                commit(filtered[active]);
-              }
-            }
           }}
         />
-        <button
-          type="button"
-          className="ac__toggle"
-          tabIndex={-1}
-          disabled={disabled || !divisionId}
-          onClick={() => divisionId && setOpen((v) => !v)}
-        >
+        <button type="button" className="ac__toggle" tabIndex={-1} disabled={disabled} onClick={() => setOpen((v) => !v)}>
           ▾
         </button>
       </div>
 
-      {open && !disabled && divisionId && (
+      {open && !disabled && (
         <div className="ac__menu">
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى نوع مطابق فـ هاد الشعبة.</div>
+            <div className="ac__empty">ما كاين حتى نوع مطابق.</div>
           ) : (
             filtered.map((it, idx) => (
               <button
@@ -289,10 +297,16 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
                   commit(it);
                 }}
               >
-                <div className="acRow">
-                  <span className="acName">{it.name}</span>
-                  <span className="acCode">{it.code}</span>
+                <div className="acRow" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <span className="acName" style={{ fontWeight: 700 }}>{it.name}</span>
+                  <span className="acCode" style={{ opacity: 0.85 }}>{it.code}</span>
                 </div>
+
+                {!!it?.division_id && (
+                  <div className="help" style={{ marginTop: 4 }}>
+                    الشعبة: {divisionNameOf(it.division_id) || it.division_id}
+                  </div>
+                )}
               </button>
             ))
           )}
@@ -303,7 +317,6 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
 }
 
 export default function SearchDocuments() {
-  // ✅ divisions from DB
   const [divisions, setDivisions] = useState([]);
 
   const [filters, setFilters] = useState({
@@ -316,7 +329,7 @@ export default function SearchDocuments() {
     q: "",
   });
 
-  const [caseTypesMap, setCaseTypesMap] = useState({}); // code => name (for hint + table)
+  const [caseTypesMap, setCaseTypesMap] = useState({});
 
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -326,7 +339,6 @@ export default function SearchDocuments() {
 
   const rows = useMemo(() => pageData?.data || [], [pageData]);
 
-  // load divisions once
   useEffect(() => {
     (async () => {
       try {
@@ -339,7 +351,6 @@ export default function SearchDocuments() {
     })();
   }, []);
 
-  // when division changes -> load mapping of case types for that division
   useEffect(() => {
     const id = filters.division_id;
     if (!id) {
@@ -388,17 +399,21 @@ export default function SearchDocuments() {
     return { ok: true, text: "✅ الصيغة صحيحة." };
   }, [filters.judgement_number]);
 
-  async function fetchDocs(url = "/documents/search", params = {}) {
+  async function fetchDocs(url = "/documents/search", params = null) {
     setError("");
     setInfo("");
+
     try {
       setLoading(true);
-      const res = await api.get(url, { params });
+
+      // ✅ IMPORTANT:
+      // - إذا url جا كامل من pagination (next_page_url/prev_page_url) ما نزيدوش params
+      // - وإلا نستعمل params عادي
+      const res = params ? await api.get(url, { params }) : await api.get(url);
+
       setPageData(res.data);
 
-      if ((res.data?.data || []).length === 0) {
-        setInfo("ما كاين حتى وثيقة مطابقة لهاد البحث.");
-      }
+      if ((res.data?.data || []).length === 0) setInfo("ما كاين حتى وثيقة مطابقة لهاد البحث.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -413,9 +428,7 @@ export default function SearchDocuments() {
   function buildParams() {
     const params = { per_page: perPage };
 
-    // ✅ backend كيعرف division كنص (وثائق مخزنة ب division name)
     if (filters.division_name) params.division = filters.division_name;
-
     if (filters.case_type_code) params.keyword = filters.case_type_code;
 
     if (filters.judge_name?.trim()) params.judge_name = filters.judge_name.trim();
@@ -423,11 +436,13 @@ export default function SearchDocuments() {
     if (filters.judgement_number?.trim()) params.judgement_number = filters.judgement_number.trim();
     if (filters.q?.trim()) params.q = filters.q.trim();
 
+    // ✅ باش search ديما يبدا من الصفحة 1
+    params.page = 1;
+
     return params;
   }
 
-  function onSubmit(e) {
-    e.preventDefault();
+  function runSearch() {
     setError("");
     setInfo("");
 
@@ -446,11 +461,42 @@ export default function SearchDocuments() {
     fetchDocs("/documents/search", buildParams());
   }
 
+  async function handleDownload(d) {
+    try {
+      const res = await api.get(`/documents/${d.id}/download`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const filename = d?.original_filename || `document-${d.id}.pdf`;
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e?.response?.data?.message || "تعذر تحميل الملف.");
+    }
+  }
+
+  function formatCaseType(doc) {
+    const code = (doc?.keyword || "").trim();
+    const name = (doc?.type || "").trim() || (code ? (caseTypesMap[code] || "") : "");
+    if (name && code) return `${name} (${code})`;
+    if (name) return name;
+    if (code) return code;
+    return "—";
+  }
+
+  // ✅ أول تحميل: عرض لائحة (paginated)
   useEffect(() => {
-    fetchDocs("/documents", { per_page: perPage });
+    fetchDocs("/documents", { per_page: perPage, page: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ ملي كتبدل perPage: نعاود search بنفس الفلاتر من الصفحة 1
   useEffect(() => {
     fetchDocs("/documents/search", buildParams());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -464,15 +510,21 @@ export default function SearchDocuments() {
       <div className="pageHeader">
         <div>
           <h2>البحث عن وثيقة</h2>
-          <p>الشعبة + نوع القضية + رقم الملف/الحكم + القاضي + كلمة مفتاحية…</p>
+          <p>pagination صحيحة: 10 وثائق فكل صفحة + السابق/التالي.</p>
+        </div>
+
+        <div className="rowActions">
+          <Link className="btn btnPrimary" to="/add">
+            إضافة وثيقة
+          </Link>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div className="grid3">
             <div className="field">
-              <div className="label">الشعبة (من DB)</div>
+              <div className="label">الشعبة (اختياري)</div>
               <select
                 className="select"
                 value={filters.division_id}
@@ -483,51 +535,56 @@ export default function SearchDocuments() {
                     ...p,
                     division_id: id,
                     division_name: d?.name || "",
-                    case_type_code: "",
                   }));
                 }}
               >
-                <option value="">— اختر الشعبة —</option>
+                <option value="">— جميع الشعب —</option>
                 {divisions.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>
                 ))}
               </select>
-              <div className="help">اختيار الشعبة كيحدد أنواع القضايا.</div>
             </div>
 
             <div className="field">
-              <div className="label">نوع القضية (من DB)</div>
+              <div className="label">نوع القضية (اختياري)</div>
               <CaseTypeAutocompleteRemote
-                divisionId={filters.division_id}
+                divisions={divisions}
+                divisionId={filters.division_id || ""}
                 value={filters.case_type_code}
                 onChange={(code) => setFilters((p) => ({ ...p, case_type_code: code }))}
+                onPick={(it) => {
+                  const d = divisions.find((x) => String(x.id) === String(it?.division_id));
+                  setFilters((p) => ({
+                    ...p,
+                    division_id: d ? String(d.id) : p.division_id,
+                    division_name: d?.name || p.division_name,
+                    case_type_code: it?.code || "",
+                  }));
+                }}
               />
-              <div className="help">
-                مثال: كتب <b>2101</b> أو <b>جنحي</b>.
-              </div>
             </div>
 
             <div className="field">
-              <div className="label">اسم القاضي (من DB)</div>
+              <div className="label">اسم القاضي</div>
               <AutocompleteRemote
                 value={filters.judge_name}
                 onChange={(v) => setFilters((p) => ({ ...p, judge_name: v }))}
                 fetchOptions={fetchJudgeNames}
                 placeholder="كتب وغيطلعوا القضاة…"
               />
-              <div className="help">كيجيب القضاة من قاعدة البيانات.</div>
             </div>
           </div>
 
           <div className="grid2" style={{ marginTop: 12 }}>
             <div className="field">
-              <div className="label">رقم الملف (n*/****/****)</div>
+              <div className="label">رقم الملف</div>
               <input
                 className="input"
                 value={filters.file_number}
                 onChange={(e) => setFilters((p) => ({ ...p, file_number: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                 placeholder="مثال: 10021/2101/2026"
               />
               <div className={`hint ${fileHint.ok === true ? "hint--ok" : fileHint.ok === false ? "hint--bad" : ""}`}>
@@ -536,16 +593,15 @@ export default function SearchDocuments() {
             </div>
 
             <div className="field">
-              <div className="label">رقم الحكم (n*/****)</div>
+              <div className="label">رقم الحكم</div>
               <input
                 className="input"
                 value={filters.judgement_number}
                 onChange={(e) => setFilters((p) => ({ ...p, judgement_number: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                 placeholder="مثال: 12/2026"
               />
-              <div
-                className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}
-              >
+              <div className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}>
                 {judgementHint.text}
               </div>
             </div>
@@ -557,13 +613,13 @@ export default function SearchDocuments() {
               className="input"
               value={filters.q}
               onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
               placeholder="مثال: تزوير / عقد / اسم شخص..."
             />
-            <div className="help">كتقلب فـ محتوى الوثيقة و/أو metadata.</div>
           </div>
 
           <div className="rowActions" style={{ marginTop: 12 }}>
-            <button className="btn btnPrimary" type="submit" disabled={loading}>
+            <button className="btn btnPrimary" type="button" disabled={loading} onClick={runSearch}>
               {loading ? "..." : "بحث"}
             </button>
 
@@ -582,7 +638,7 @@ export default function SearchDocuments() {
                   q: "",
                 });
                 setCaseTypesMap({});
-                fetchDocs("/documents", { per_page: perPage });
+                fetchDocs("/documents", { per_page: perPage, page: 1 });
               }}
             >
               تصفير
@@ -591,12 +647,7 @@ export default function SearchDocuments() {
         </form>
       </div>
 
-      {info && (
-        <div className="alert alertInfo card" style={{ marginBottom: 14 }}>
-          {info}
-        </div>
-      )}
-
+      {info && <div className="alert alertInfo card" style={{ marginBottom: 14 }}>{info}</div>}
       {error && (
         <div className="alert alertError card" style={{ marginBottom: 14 }}>
           <strong>خطأ:</strong> {error}
@@ -617,7 +668,11 @@ export default function SearchDocuments() {
         <div className="rowActions">
           <div className="rowsSelect">
             <span className="help">عرض:</span>
-            <select className="select select--sm" value={perPage} onChange={(e) => setPerPage(parseInt(e.target.value, 10))}>
+            <select
+              className="select select--sm"
+              value={perPage}
+              onChange={(e) => setPerPage(parseInt(e.target.value, 10))}
+            >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={30}>30</option>
@@ -652,47 +707,28 @@ export default function SearchDocuments() {
               )}
 
               {!loading &&
-                rows.map((d) => {
-                  const code = d.keyword || "";
-                  const name = code ? caseTypesMap[code] : null;
-
-                  return (
-                    <tr key={d.id}>
-                      <td>{d.id}</td>
-                      <td>{d.division || "—"}</td>
-
-                      <td>
-                        {code ? (
-                          <>
-                            <span style={{ fontWeight: 800 }}>{code}</span>
-                            {name ? (
-                              <div className="help" style={{ marginTop: 4 }}>
-                                {name}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : (
-                          d.type || "—"
-                        )}
-                      </td>
-
-                      <td>{d.case_number || "—"}</td>
-                      <td>{d.judgement_number || "—"}</td>
-                      <td>{d.judge_name || "—"}</td>
-
-                      <td>
-                        <div className="rowActions">
-                          <Link className="btn btnSecondary" to={`/documents/${d.id}`}>
-                            عرض
-                          </Link>
-                          <a className="btn btnSecondary" href={`/api/documents/${d.id}/download`} target="_blank" rel="noreferrer">
-                            تحميل
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                rows.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.id}</td>
+                    <td>{d.division || "—"}</td>
+                    <td>
+                      <span style={{ fontWeight: 800 }}>{formatCaseType(d)}</span>
+                    </td>
+                    <td>{d.case_number || "—"}</td>
+                    <td>{d.judgement_number || "—"}</td>
+                    <td>{d.judge_name || "—"}</td>
+                    <td>
+                      <div className="rowActions">
+                        <Link className="btn btnSecondary" to={`/documents/${d.id}`}>
+                          عرض
+                        </Link>
+                        <button className="btn btnSecondary" type="button" onClick={() => handleDownload(d)}>
+                          تحميل
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
 
               {!loading && rows.length === 0 && (
                 <tr>
@@ -716,7 +752,7 @@ export default function SearchDocuments() {
                 className="btn btnSecondary"
                 type="button"
                 disabled={!canPrev || loading}
-                onClick={() => fetchDocs(pageData.prev_page_url, buildParams())}
+                onClick={() => fetchDocs(pageData.prev_page_url)}
               >
                 السابق
               </button>
@@ -725,7 +761,7 @@ export default function SearchDocuments() {
                 className="btn btnSecondary"
                 type="button"
                 disabled={!canNext || loading}
-                onClick={() => fetchDocs(pageData.next_page_url, buildParams())}
+                onClick={() => fetchDocs(pageData.next_page_url)}
               >
                 التالي
               </button>

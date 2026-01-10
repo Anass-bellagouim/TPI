@@ -6,6 +6,14 @@ function norm(s) {
   return (s || "").toString().trim().toLowerCase();
 }
 
+const PER_PAGE_KEY = "divisions_per_page";
+
+function readPerPage() {
+  const v = Number(localStorage.getItem(PER_PAGE_KEY));
+  if ([10, 25, 50, 100].includes(v)) return v;
+  return 10;
+}
+
 export default function DivisionsAdmin() {
   const nav = useNavigate();
 
@@ -13,8 +21,17 @@ export default function DivisionsAdmin() {
   const [q, setQ] = useState("");
 
   const [form, setForm] = useState({ name: "", is_active: true });
+
   const [editingId, setEditingId] = useState(null);
-  const [edit, setEdit] = useState({ name: "", is_active: true });
+  // ✅ Edit state: name فقط
+  const [edit, setEdit] = useState({ name: "" });
+
+  // ✅ نخزنو is_active ديال row اللي كيتعدل (باش نرسل آخر قيمة)
+  const [editingIsActive, setEditingIsActive] = useState(true);
+
+  // ✅ perPage + page (client-side)
+  const [perPage, setPerPage] = useState(readPerPage());
+  const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -28,8 +45,9 @@ export default function DivisionsAdmin() {
       setLoading(true);
       const res = await api.get("/admin/divisions");
       const data = res.data?.data || res.data || [];
-      setRows(Array.isArray(data) ? data : []);
-      if ((data?.length || 0) === 0) setInfo("ما كايناش شعب دابا. زيد أول شعبة من الفورم.");
+      const arr = Array.isArray(data) ? data : [];
+      setRows(arr);
+      if ((arr?.length || 0) === 0) setInfo("ما كايناش شعب دابا. زيد أول شعبة من الفورم.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -45,11 +63,40 @@ export default function DivisionsAdmin() {
     fetchDivisions();
   }, []);
 
+  // ✅ حفظ perPage
+  useEffect(() => {
+    localStorage.setItem(PER_PAGE_KEY, String(perPage));
+    setPage(1);
+  }, [perPage]);
+
+  // ✅ reset page عند تبديل البحث
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
+
   const filtered = useMemo(() => {
     const qq = norm(q);
     if (!qq) return rows;
     return rows.filter((r) => norm(r.name).includes(qq));
   }, [rows, q]);
+
+  // ✅ Client-side pagination
+  const total = filtered.length;
+  const lastPage = Math.max(1, Math.ceil(total / perPage));
+  const safePage = Math.min(Math.max(1, page), lastPage);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safePage]);
+
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * perPage;
+    return filtered.slice(start, start + perPage);
+  }, [filtered, safePage, perPage]);
+
+  const canPrev = safePage > 1;
+  const canNext = safePage < lastPage;
 
   async function onAdd(e) {
     e.preventDefault();
@@ -69,6 +116,7 @@ export default function DivisionsAdmin() {
       setInfo(res.data?.message || "تمت إضافة الشعبة.");
       setForm({ name: "", is_active: true });
       await fetchDivisions();
+      setPage(1);
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -82,12 +130,14 @@ export default function DivisionsAdmin() {
 
   function startEdit(row) {
     setEditingId(row.id);
-    setEdit({ name: row.name || "", is_active: !!row.is_active });
+    setEdit({ name: row.name || "" });
+    setEditingIsActive(!!row.is_active);
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEdit({ name: "", is_active: true });
+    setEdit({ name: "" });
+    setEditingIsActive(true);
   }
 
   async function saveEdit(id) {
@@ -97,12 +147,18 @@ export default function DivisionsAdmin() {
     const name = edit.name.trim();
     if (!name) return setError("اسم الشعبة ضروري.");
 
+    // ✅ خذ آخر حالة من rows باش ما نرجعوش التبديل للقديم
+    const currentRow = rows.find((r) => r.id === id);
+    const latestIsActive = currentRow ? !!currentRow.is_active : !!editingIsActive;
+
     try {
       setSaving(true);
+
       const res = await api.patch(`/admin/divisions/${id}`, {
         name,
-        is_active: !!edit.is_active,
+        is_active: latestIsActive,
       });
+
       setInfo(res.data?.message || "تم تحديث الشعبة.");
       cancelEdit();
       await fetchDivisions();
@@ -129,6 +185,7 @@ export default function DivisionsAdmin() {
       const res = await api.delete(`/admin/divisions/${id}`);
       setInfo(res.data?.message || "تم حذف الشعبة.");
       await fetchDivisions();
+      setPage(1);
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -143,15 +200,27 @@ export default function DivisionsAdmin() {
   async function quickToggle(row) {
     setError("");
     setInfo("");
+
+    const nextActive = !row.is_active;
+
+    // ✅ Optimistic UI: بدّل فـ rows مباشرة
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: nextActive } : r)));
+
+    // ✅ إذا كنت كتعدل نفس row، حدّث editingIsActive باش يبقى synchronized
+    if (editingId === row.id) setEditingIsActive(nextActive);
+
     try {
       setSaving(true);
       const res = await api.patch(`/admin/divisions/${row.id}`, {
         name: row.name,
-        is_active: !row.is_active,
+        is_active: nextActive,
       });
       setInfo(res.data?.message || "تم التحديث.");
-      await fetchDivisions();
     } catch (e) {
+      // ❌ rollback إلا فشل
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: row.is_active } : r)));
+      if (editingId === row.id) setEditingIsActive(!!row.is_active);
+
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
@@ -228,14 +297,31 @@ export default function DivisionsAdmin() {
 
       {/* ✅ List (BOTTOM) */}
       <div className="card">
-        <div className="listTop">
+        <div className="listTop" style={{ alignItems: "center" }}>
           <div>
             <h3 className="cardTitle">لائحة الشعب</h3>
-            <div className="help">المجموع: {rows.length}</div>
+            <div className="help">
+              المجموع: {total} — صفحة {safePage}/{lastPage}
+            </div>
           </div>
 
-          <div className="searchBox">
+          <div className="searchBox" style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input className="input input--sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." />
+
+            {/* ✅ perPage فوق الجدول */}
+            <div className="field" style={{ minWidth: 40 }}>
+              <select
+                className="select select--sm"
+                value={perPage}
+                onChange={(e) => setPerPage(Number(e.target.value))}
+                disabled={loading || saving}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -259,7 +345,7 @@ export default function DivisionsAdmin() {
                 </tr>
               )}
 
-              {!loading && filtered.length === 0 && (
+              {!loading && pagedRows.length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ color: "var(--muted)" }}>
                     لا توجد بيانات.
@@ -268,7 +354,7 @@ export default function DivisionsAdmin() {
               )}
 
               {!loading &&
-                filtered.map((r) => {
+                pagedRows.map((r) => {
                   const isEditing = editingId === r.id;
 
                   return (
@@ -291,35 +377,23 @@ export default function DivisionsAdmin() {
                         )}
                       </td>
 
-                      {/* ✅ Status pill clickable (toggle) */}
+                      {/* ✅ Status toggle */}
                       <td>
-                        {isEditing ? (
-                          <label className="check">
-                            <input
-                              type="checkbox"
-                              checked={!!edit.is_active}
-                              onChange={(e) => setEdit((p) => ({ ...p, is_active: e.target.checked }))}
-                              disabled={saving}
-                            />
-                            <span>{edit.is_active ? "Active" : "Inactive"}</span>
-                          </label>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`pill ${r.is_active ? "pill--ok" : "pill--bad"}`}
-                            onClick={() => quickToggle(r)}
-                            disabled={saving}
-                            title={r.is_active ? "اضغط لتعطيل الشعبة" : "اضغط لتفعيل الشعبة"}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              cursor: saving ? "not-allowed" : "pointer",
-                              padding: 0,
-                            }}
-                          >
-                            {r.is_active ? "Active" : "Inactive"}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className={`pill ${r.is_active ? "pill--ok" : "pill--bad"}`}
+                          onClick={() => quickToggle(r)}
+                          disabled={saving}
+                          title={r.is_active ? "اضغط لتعطيل الشعبة" : "اضغط لتفعيل الشعبة"}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          {r.is_active ? "Active" : "Inactive"}
+                        </button>
                       </td>
 
                       <td>
@@ -362,8 +436,25 @@ export default function DivisionsAdmin() {
           </table>
         </div>
 
+        {/* ✅ pager local */}
+        <div className="pager" style={{ marginTop: 12 }}>
+          <div className="help">
+            عرض {pagedRows.length} من {total} — per page: <b>{perPage}</b>
+          </div>
+
+          <div className="rowActions">
+            <button className="btn btnSecondary" type="button" disabled={!canPrev || loading || saving} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              السابق
+            </button>
+
+            <button className="btn btnSecondary" type="button" disabled={!canNext || loading || saving} onClick={() => setPage((p) => Math.min(lastPage, p + 1))}>
+              التالي
+            </button>
+          </div>
+        </div>
+
         <div className="help" style={{ marginTop: 10 }}>
-          ملاحظة: التفعيل/التعطيل كيدار من زر الحالة (Active/Inactive).
+          ملاحظة: تقدر تبدّل الحالة Active/Inactive حتى وانت فـ تعديل. التعديل كيبقى غير فالاسم.
         </div>
       </div>
     </div>

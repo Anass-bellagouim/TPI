@@ -10,23 +10,39 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
-    // GET /api/admin/employees?search=
+    // GET /api/admin/employees?search=&per_page=
     public function index(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
 
-        $q = User::query();
+        // ✅ per_page from query (allowed values only)
+        $perPage = (int) $request->query('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 10;
+        }
+
+        $q = User::query()
+            // ✅ select only existing columns
+            ->select([
+                'id',
+                'first_name',
+                'last_name',
+                'username',
+                'email',
+                'role',
+                'is_active',
+            ]);
 
         if ($search !== '') {
             $q->where(function ($qq) use ($search) {
                 $qq->where('first_name', 'like', "%{$search}%")
-                   ->orWhere('last_name', 'like', "%{$search}%")
-                   ->orWhere('username', 'like', "%{$search}%")
-                   ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
-        $page = $q->orderByDesc('id')->paginate(20);
+        $page = $q->orderByDesc('id')->paginate($perPage);
 
         $page->getCollection()->transform(function (User $u) {
             return $this->shapeUser($u);

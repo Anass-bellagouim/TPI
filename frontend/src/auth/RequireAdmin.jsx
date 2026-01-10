@@ -3,34 +3,22 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "./AuthContext.jsx";
 
 export default function RequireAdmin() {
-  const { user, isLoading } = useContext(AuthContext);
+  const ctx = useContext(AuthContext) || {};
+  const { user, isLoading } = ctx;
   const location = useLocation();
 
-  // ⏳ مازال كيتحمّل user (مثلاً بعد refresh)
   if (isLoading) {
-    return (
-      <div style={{ padding: 20 }}>
-        التحقق من الصلاحيات...
-      </div>
-    );
+    return <div style={{ padding: 20 }}>التحقق من الصلاحيات...</div>;
   }
 
-  // 🔐 ما مسجّلش الدخول
   if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  // 🚫 مسجّل ولكن ماشي admin
-  if (user.role !== "admin") {
+  const role = String(user.role || "").toLowerCase();
+  if (role !== "admin") {
     return <Navigate to="/search" replace />;
   }
 
-  // ✅ Admin → دخّل للصفحة
   return <Outlet />;
 }

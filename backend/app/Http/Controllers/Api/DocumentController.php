@@ -10,9 +10,24 @@ use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {
-    // GET /api/documents (pagination 20) — بلا content_text
-    public function index()
+    /**
+     * ✅ Helper: per_page safe
+     */
+    private function perPage(Request $request, int $default = 20): int
     {
+        $pp = (int) $request->query('per_page', $default);
+        // حدّدنا سقف باش ما يجيش شي حد يدير 5000
+        return max(1, min($pp, 100));
+    }
+
+    /**
+     * GET /api/documents?per_page=10&page=1
+     * (pagination) — بلا content_text
+     */
+    public function index(Request $request)
+    {
+        $perPage = $this->perPage($request, 20);
+
         $docs = Document::query()
             ->select([
                 'id',
@@ -31,12 +46,15 @@ class DocumentController extends Controller
                 'updated_at',
             ])
             ->orderByDesc('id')
-            ->paginate(20);
+            ->paginate($perPage)
+            ->appends($request->query()); // باش next/prev يحتافظو بالفلترات
 
         return response()->json($docs);
     }
 
-    // POST /api/documents (multipart/form-data)
+    /**
+     * POST /api/documents (multipart/form-data)
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -65,13 +83,12 @@ class DocumentController extends Controller
 
         // fields for extraction
         $doc->content_text = null;
-        $doc->status = 'pending';          // عندك فـ الجدول
-        $doc->extract_status = 'pending';  // ديال job
+        $doc->status = 'pending';
+        $doc->extract_status = 'pending';
         $doc->extract_error = null;
 
         $doc->save();
 
-        // ✅ dispatch extraction job
         ExtractDocumentTextJob::dispatch($doc->id);
 
         return response()->json([
@@ -94,16 +111,33 @@ class DocumentController extends Controller
         ], 201);
     }
 
-    // GET /api/documents/search?type=&case_number=&judgement_number=&judge_name=&division=&keyword=
-    // (كيـرجع data[] limit 50)
+    /**
+     * ✅ GET /api/documents/search?per_page=10&page=1&type=&case_number=&judgement_number=&judge_name=&division=&keyword=&q=
+     * (pagination بدل limit 50)
+     *
+     * ملاحظة: أنت فالـReact كتستعمل:
+     * - division
+     * - keyword (case_type_code)
+     * - judge_name
+     * - case_number
+     * - judgement_number
+     * - q (كلمة مفتاحية عامة)
+     *
+     * دابا غادي نخدم keyword و q بجوج:
+     * - keyword: نفس سلوكك الحالي (يقلب فـ keyword/content_text/original_filename)
+     * - q: نفس الشيء (باش React يبقى خدام)
+     */
     public function search(Request $request)
     {
+        $perPage = $this->perPage($request, 20);
+
         $type = trim((string) $request->query('type', ''));
         $caseNumber = trim((string) $request->query('case_number', ''));
         $judgementNumber = trim((string) $request->query('judgement_number', ''));
         $judgeName = trim((string) $request->query('judge_name', ''));
         $division = trim((string) $request->query('division', ''));
         $keyword = trim((string) $request->query('keyword', ''));
+        $qText = trim((string) $request->query('q', ''));
 
         $q = Document::query()
             ->select([
@@ -117,6 +151,7 @@ class DocumentController extends Controller
                 'status',
                 'extract_status',
                 'created_at',
+                'updated_at',
             ])
             ->orderByDesc('id');
 
@@ -135,6 +170,8 @@ class DocumentController extends Controller
         if ($division !== '') {
             $q->where('division', 'like', "%{$division}%");
         }
+
+        // keyword filter (كما كان)
         if ($keyword !== '') {
             $q->where(function ($qq) use ($keyword) {
                 $qq->where('keyword', 'like', "%{$keyword}%")
@@ -143,21 +180,37 @@ class DocumentController extends Controller
             });
         }
 
-        $docs = $q->limit(50)->get();
+        // ✅ q general filter (React كيرسلو فـ params.q)
+        if ($qText !== '') {
+            $q->where(function ($qq) use ($qText) {
+                $qq->where('keyword', 'like', "%{$qText}%")
+                    ->orWhere('content_text', 'like', "%{$qText}%")
+                    ->orWhere('original_filename', 'like', "%{$qText}%")
+                    ->orWhere('type', 'like', "%{$qText}%")
+                    ->orWhere('division', 'like', "%{$qText}%")
+                    ->orWhere('judge_name', 'like', "%{$qText}%")
+                    ->orWhere('case_number', 'like', "%{$qText}%")
+                    ->orWhere('judgement_number', 'like', "%{$qText}%");
+            });
+        }
 
-        return response()->json(['data' => $docs]);
+        $docs = $q->paginate($perPage)->appends($request->query());
+
+        return response()->json($docs);
     }
 
-    // GET /api/documents/{id}
+    /**
+     * GET /api/documents/{id}
+     */
     public function show(int $id)
     {
         $doc = Document::findOrFail($id);
-
-        // هنا كنرجعو content_text باش details يقدر يبينو
         return response()->json($doc);
     }
 
-    // PUT/PATCH /api/documents/{id}
+    /**
+     * PUT/PATCH /api/documents/{id}
+     */
     public function update(Request $request, int $id)
     {
         $doc = Document::findOrFail($id);
@@ -169,7 +222,6 @@ class DocumentController extends Controller
             'judge_name' => ['nullable', 'string', 'max:255'],
             'division' => ['nullable', 'string', 'max:255'],
             'keyword' => ['nullable', 'string', 'max:255'],
-            // status اختياري (إلا بغيتي تتحكم فيه من admin)
             'status' => ['nullable', 'string', 'max:50'],
         ]);
 
@@ -182,7 +234,9 @@ class DocumentController extends Controller
         ]);
     }
 
-    // DELETE /api/documents/{id}
+    /**
+     * DELETE /api/documents/{id}
+     */
     public function destroy(int $id)
     {
         $doc = Document::findOrFail($id);
@@ -196,7 +250,9 @@ class DocumentController extends Controller
         return response()->json(['message' => 'تم حذف الوثيقة بنجاح']);
     }
 
-    // GET /api/documents/{id}/download
+    /**
+     * GET /api/documents/{id}/download
+     */
     public function download(int $id)
     {
         $doc = Document::findOrFail($id);
@@ -205,7 +261,6 @@ class DocumentController extends Controller
             return response()->json(['message' => 'الملف غير موجود'], 404);
         }
 
-        // كيحافظ على الاسم الأصلي فالتحميل
         $downloadName = $doc->original_filename ?: basename($doc->file_path);
 
         return Storage::disk('public')->download($doc->file_path, $downloadName);

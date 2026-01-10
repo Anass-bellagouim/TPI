@@ -1,25 +1,46 @@
 // src/pages/Employees.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api.js";
 
+const PER_PAGE_KEY = "employees_per_page";
+
+function readPerPage() {
+  const v = Number(localStorage.getItem(PER_PAGE_KEY));
+  if ([10, 25, 50, 100].includes(v)) return v;
+  return 10;
+}
+
 export default function Employees() {
-  const [filters, setFilters] = useState({ q: "" });
+  const [q, setQ] = useState("");
+  const [perPage, setPerPage] = useState(readPerPage());
+
   const [loading, setLoading] = useState(false);
   const [pageData, setPageData] = useState(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
+  // ✅ نحتافظ بآخر params باش pagination يبقى صحيح
+  const lastParamsRef = useRef({ per_page: perPage });
+
   const rows = useMemo(() => pageData?.data || [], [pageData]);
 
-  async function fetchEmployees(url = "/admin/employees", params = {}) {
+  const params = useMemo(() => {
+    const p = { per_page: perPage };
+    const qq = q.trim();
+    if (qq) p.search = qq;
+    return p;
+  }, [q, perPage]);
+
+  async function fetchEmployees(url = "/admin/employees", p = params) {
     setError("");
     setInfo("");
     try {
       setLoading(true);
 
-      // ✅ إذا جا URL كامل من paginator (http...) نخليه كما هو
-      const res = await api.get(url, { params });
+      lastParamsRef.current = p; // ✅ نخزن آخر params
+
+      const res = await api.get(url, { params: p });
       setPageData(res.data);
 
       if ((res.data?.data || []).length === 0) {
@@ -36,18 +57,28 @@ export default function Employees() {
     }
   }
 
-  function onSubmit(e) {
-    e.preventDefault();
-    const params = {};
-    const q = filters.q?.trim();
-    if (q) params.search = q;
-    fetchEmployees("/admin/employees", params);
-  }
-
+  // ✅ أول load
   useEffect(() => {
-    fetchEmployees("/admin/employees", {});
+    fetchEmployees("/admin/employees", params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ حفظ perPage + refetch (من الصفحة 1)
+  useEffect(() => {
+    localStorage.setItem(PER_PAGE_KEY, String(perPage));
+    fetchEmployees("/admin/employees", params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perPage]);
+
+  // ✅ LIVE SEARCH + debounce (بدون buttons)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchEmployees("/admin/employees", params);
+    }, 350);
+
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   const canPrev = !!pageData?.prev_page_url;
   const canNext = !!pageData?.next_page_url;
@@ -67,43 +98,6 @@ export default function Employees() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <form onSubmit={onSubmit}>
-          <div className="grid2">
-            <div className="field">
-              <div className="label">بحث عام</div>
-              <input
-                className="input"
-                placeholder="اسم / لقب / username"
-                value={filters.q}
-                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-              />
-              <div className="help" style={{ marginTop: 6 }}>
-                ملاحظة: بما أنك ما بغيتيش email، البحث كيخدم على الاسم/username.
-              </div>
-            </div>
-          </div>
-
-          <div className="rowActions" style={{ marginTop: 10 }}>
-            <button className="btn btnPrimary" type="submit" disabled={loading}>
-              {loading ? "..." : "بحث"}
-            </button>
-
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={loading}
-              onClick={() => {
-                setFilters({ q: "" });
-                fetchEmployees("/admin/employees", {});
-              }}
-            >
-              عرض الكل
-            </button>
-          </div>
-        </form>
-      </div>
-
       {info && (
         <div className="alert alertInfo card" style={{ marginBottom: 14 }}>
           {info}
@@ -116,7 +110,81 @@ export default function Employees() {
         </div>
       )}
 
+      {/* 📋 TABLE CARD */}
       <div className="card">
+        {/* ✅ Search + perPage فوق الجدول (بلا buttons) */}
+        <div
+          className="listTop"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "end",
+            gap: 12,
+            marginBottom: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ minWidth: 260 }}>
+            <div className="label">بحث عام</div>
+
+            <div style={{ position: "relative" }}>
+              <input
+                className="input input--sm"
+                placeholder="اسم / لقب / username"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                disabled={loading}
+                style={{ paddingLeft: 34 }}
+              />
+
+              {/* ✅ clear داخل input */}
+              {!!q && (
+                <button
+                  type="button"
+                  onClick={() => setQ("")}
+                  title="مسح"
+                  aria-label="مسح"
+                  style={{
+                    position: "absolute",
+                    left: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                    color: "var(--muted)",
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "end" }}>
+            <div className="help" style={{ marginBottom: 6 }}>
+              المجموع: {pageData?.total ?? 0}
+            </div>
+
+            <div className="field" style={{ minWidth: 40 }}>
+              <select
+                className="select select--sm"
+                value={perPage}
+                onChange={(e) => setPerPage(Number(e.target.value))}
+                disabled={loading}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="tableWrap">
           <table className="table">
             <thead>
@@ -157,7 +225,6 @@ export default function Employees() {
                           fontSize: 12,
                           border: "1px solid var(--border)",
                         }}
-                        title={isActive ? "الحساب مفعل" : "الحساب موقوف"}
                       >
                         {isActive ? "✅ مفعل" : "⛔ موقوف"}
                       </span>
@@ -165,7 +232,6 @@ export default function Employees() {
 
                     <td>
                       <div className="rowActions">
-                        {/* ✅ هذا هو الصحيح */}
                         <Link className="btn btnSecondary" to={`/employees/${u.id}`}>
                           تعديل
                         </Link>
@@ -197,8 +263,7 @@ export default function Employees() {
         {pageData && (
           <div className="pager" style={{ marginTop: 12 }}>
             <div className="help">
-              صفحة {pageData.current_page} / {pageData.last_page} — المجموع:{" "}
-              {pageData.total}
+              صفحة {pageData.current_page} / {pageData.last_page}
             </div>
 
             <div className="rowActions">
@@ -206,7 +271,7 @@ export default function Employees() {
                 className="btn btnSecondary"
                 type="button"
                 disabled={!canPrev || loading}
-                onClick={() => fetchEmployees(pageData.prev_page_url, {})}
+                onClick={() => fetchEmployees(pageData.prev_page_url, lastParamsRef.current)}
               >
                 السابق
               </button>
@@ -215,7 +280,7 @@ export default function Employees() {
                 className="btn btnSecondary"
                 type="button"
                 disabled={!canNext || loading}
-                onClick={() => fetchEmployees(pageData.next_page_url, {})}
+                onClick={() => fetchEmployees(pageData.next_page_url, lastParamsRef.current)}
               >
                 التالي
               </button>

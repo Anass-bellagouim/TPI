@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api.js";
 
@@ -46,7 +46,6 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // fetch options when q changes (debounced)
   useEffect(() => {
     if (!open || disabled) return;
 
@@ -91,7 +90,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
             setQ(e.target.value);
             setOpen(true);
             setActive(-1);
-            onChange?.(e.target.value); // allow free text
+            onChange?.(e.target.value);
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -124,7 +123,13 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
             }
           }}
         />
-        <button type="button" className="ac__toggle" tabIndex={-1} disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        <button
+          type="button"
+          className="ac__toggle"
+          tabIndex={-1}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
           ▾
         </button>
       </div>
@@ -161,10 +166,11 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
 }
 
 /**
- * ✅ Remote case-types autocomplete (by division_id)
- * - value stored = code (4 digits)
+ * ✅ Global CaseType autocomplete
+ * - تقدر تكتب الاسم ولا الرمز بلا ما تختار الشعبة
+ * - منين كتختار type => كيرجع it فيه division_id وكنعمّرو الشعبة تلقائياً
  */
-function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
+function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -172,9 +178,10 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // show selected label if we have it
   useEffect(() => {
-    if (!value) setQ("");
+    if (!value) return;
+    if (!q) setQ(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   useEffect(() => {
@@ -189,19 +196,14 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // fetch case types when open + divisionId + query changes
   useEffect(() => {
-    if (!open || disabled || !divisionId) return;
+    if (!open || disabled) return;
 
     const t = setTimeout(async () => {
       try {
         setLoading(true);
         const res = await api.get("/lookups/case-types", {
-          params: {
-            division_id: divisionId,
-            q: q || "",
-            active: 1,
-          },
+          params: { q: q || "", active: 1 },
         });
         const data = res.data?.data || [];
         setItems(Array.isArray(data) ? data : []);
@@ -211,18 +213,24 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
     }, 250);
 
     return () => clearTimeout(t);
-  }, [open, disabled, divisionId, q]);
+  }, [open, disabled, q]);
 
-  const filtered = useMemo(() => {
-    // backend already filters; just limit
-    return (items || []).slice(0, 12);
-  }, [items]);
+  const divisionNameOf = useCallback(
+    (division_id) => {
+      const d = (divisions || []).find((x) => String(x.id) === String(division_id));
+      return d?.name || "";
+    },
+    [divisions]
+  );
+
+  const filtered = useMemo(() => (items || []).slice(0, 12), [items]);
 
   function commit(it) {
     onChange?.(it.code);
     setQ(`${it.name} (${it.code})`);
     setOpen(false);
     setActive(-1);
+    onPick?.(it);
   }
 
   return (
@@ -231,9 +239,9 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
         <input
           className="ac__input"
           value={q}
-          placeholder={divisionId ? "اكتب اسم النوع أو الرمز..." : "اختار الشعبة أولا"}
-          disabled={disabled || !divisionId}
-          onFocus={() => divisionId && setOpen(true)}
+          placeholder="اكتب نوع القضية أو الرمز (بحث عام)..."
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
           onChange={(e) => {
             setQ(e.target.value);
             setOpen(true);
@@ -267,23 +275,17 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
             }
           }}
         />
-        <button
-          type="button"
-          className="ac__toggle"
-          tabIndex={-1}
-          disabled={disabled || !divisionId}
-          onClick={() => divisionId && setOpen((v) => !v)}
-        >
+        <button type="button" className="ac__toggle" tabIndex={-1} disabled={disabled} onClick={() => setOpen((v) => !v)}>
           ▾
         </button>
       </div>
 
-      {open && !disabled && divisionId && (
+      {open && !disabled && (
         <div className="ac__menu">
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى نوع مطابق فـ هاد الشعبة.</div>
+            <div className="ac__empty">ما كاين حتى نوع مطابق.</div>
           ) : (
             filtered.map((it, idx) => (
               <button
@@ -296,10 +298,20 @@ function CaseTypeAutocompleteRemote({ divisionId, value, onChange, disabled }) {
                   commit(it);
                 }}
               >
-                <div className="acRow">
-                  <span className="acName">{it.name}</span>
-                  <span className="acCode">{it.code}</span>
+                <div className="acRow" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <span className="acName" style={{ fontWeight: 900 }}>
+                    {it.name}
+                  </span>
+                  <span className="acCode" style={{ opacity: 0.85 }}>
+                    {it.code}
+                  </span>
                 </div>
+
+                {!!it?.division_id && (
+                  <div className="help" style={{ marginTop: 4 }}>
+                    الشعبة: {divisionNameOf(it.division_id) || it.division_id}
+                  </div>
+                )}
               </button>
             ))
           )}
@@ -322,17 +334,15 @@ export default function AddDocument() {
   const [judgementNumber, setJudgementNumber] = useState("");
   const [judgeName, setJudgeName] = useState("");
 
-  // ✅ divisions from DB
   const [divisions, setDivisions] = useState([]);
   const [divisionId, setDivisionId] = useState("");
   const [divisionName, setDivisionName] = useState("");
 
-  // ✅ case type code from DB
   const [caseTypeCode, setCaseTypeCode] = useState("");
+  const [caseTypeName, setCaseTypeName] = useState("");
 
   const fileName = useMemo(() => file?.name || "", [file]);
 
-  // load divisions once
   useEffect(() => {
     (async () => {
       try {
@@ -340,7 +350,6 @@ export default function AddDocument() {
         const data = res.data?.data || [];
         setDivisions(Array.isArray(data) ? data : []);
       } catch (e) {
-        // silent; show in UI if you want
         console.error(e);
       }
     })();
@@ -350,8 +359,6 @@ export default function AddDocument() {
     const parts = extractCaseCodeFromFileNumber(caseNumber);
     if (!caseNumber) return { ok: null, text: "الصيغة: 10021/2101/2026" };
     if (!parts) return { ok: false, text: "رقم الملف غير صحيح. مثال: 10021/2101/2026" };
-
-    // just show the code; real validation is DB-side
     return { ok: true, text: `✅ الرمز المستخرج من رقم الملف: ${parts.caseCode}` };
   }, [caseNumber]);
 
@@ -370,6 +377,7 @@ export default function AddDocument() {
     setDivisionId("");
     setDivisionName("");
     setCaseTypeCode("");
+    setCaseTypeName("");
   }
 
   async function fetchJudgeNames(query) {
@@ -400,6 +408,8 @@ export default function AddDocument() {
     if (!divisionId) return setError("اختار الشعبة قبل الرفع.");
     if (!caseTypeCode) return setError("اختار نوع القضية (بالاسم أو بالرمز) قبل الرفع.");
 
+    const safeType = (caseTypeName || "").trim() || String(caseTypeCode || "").trim();
+
     try {
       setLoading(true);
 
@@ -410,25 +420,16 @@ export default function AddDocument() {
       fd.append("judgement_number", judgementNumber.trim());
       fd.append("judge_name", judgeName.trim());
 
-      // ✅ نخزنو الاسم فـ documents.division (بحال اللي عندك دابا)
       fd.append("division", divisionName.trim());
+      fd.append("keyword", String(caseTypeCode).trim());
+      fd.append("type", safeType);
 
-      // ✅ نخزنو الرمز فـ documents.keyword
-      fd.append("keyword", caseTypeCode);
-
-      const res = await api.post("/documents", fd, {
+      await api.post("/documents", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const doc = res.data?.data;
-      setInfo(res.data?.message || "تم رفع الوثيقة بنجاح.");
-
-      if (doc?.id) {
-        navigate(`/documents/${doc.id}`, { replace: true });
-        return;
-      }
-
-      resetForm();
+      // ✅ منين كتنجح الإضافة: دير redirect لصفحة البحث
+      navigate("/search", { replace: true });
     } catch (e2) {
       const msg =
         e2?.response?.data?.message ||
@@ -446,6 +447,12 @@ export default function AddDocument() {
         <div>
           <h2>إضافة وثيقة</h2>
           <p>رفع PDF + اختيار (الشعبة + نوع القضية + القاضي) من قاعدة البيانات.</p>
+        </div>
+
+        <div className="headerActions">
+          <button className="btn btnSecondary" type="button" disabled={loading} onClick={() => navigate("/search")}>
+            رجوع
+          </button>
         </div>
       </div>
 
@@ -488,7 +495,6 @@ export default function AddDocument() {
                   const d = divisions.find((x) => String(x.id) === String(id));
                   setDivisionId(id);
                   setDivisionName(d?.name || "");
-                  setCaseTypeCode("");
                 }}
                 disabled={loading}
               >
@@ -499,18 +505,28 @@ export default function AddDocument() {
                   </option>
                 ))}
               </select>
-              <div className="help">اختيار الشعبة كيحدد أنواع القضايا تلقائياً.</div>
+              <div className="help">تقدر تختار الشعبة يدوياً، أو كتتعمر تلقائياً منين كتختار نوع القضية.</div>
             </div>
 
             <div className="field">
-              <div className="label">نوع القضية (من DB)</div>
-              <CaseTypeAutocompleteRemote
-                divisionId={divisionId}
+              <div className="label">نوع القضية (بحث عام)</div>
+              <CaseTypeAutocompleteGlobal
+                divisions={divisions}
                 value={caseTypeCode}
-                onChange={(code) => setCaseTypeCode(code)}
+                onChange={(code) => {
+                  setCaseTypeCode(code);
+                  setCaseTypeName("");
+                }}
+                onPick={(it) => {
+                  const d = divisions.find((x) => String(x.id) === String(it?.division_id));
+                  setDivisionId(d ? String(d.id) : "");
+                  setDivisionName(d?.name || "");
+                  setCaseTypeCode(it?.code || "");
+                  setCaseTypeName(it?.name || "");
+                }}
                 disabled={loading}
               />
-              <div className="help">كتب الاسم أو الرمز (مثال 2101).</div>
+              <div className="help">كتب الاسم أو الرمز (مثال 2101) حتى إلا ما اخترتيش الشعبة.</div>
             </div>
           </div>
 
@@ -538,9 +554,7 @@ export default function AddDocument() {
                 placeholder="مثال: 12/2026"
                 disabled={loading}
               />
-              <div
-                className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}
-              >
+              <div className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}>
                 {judgementHint.text}
               </div>
             </div>
@@ -565,16 +579,6 @@ export default function AddDocument() {
 
             <button className="btn btnSecondary" type="button" disabled={loading} onClick={resetForm}>
               مسح
-            </button>
-
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={loading}
-              onClick={() => navigate("/search")}
-              style={{ marginInlineStart: "auto" }}
-            >
-              رجوع
             </button>
           </div>
 
