@@ -21,6 +21,7 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'is_super_admin', // ✅ NEW
     ];
 
     protected $hidden = [
@@ -30,6 +31,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_super_admin' => 'boolean', // ✅ NEW
         // 'email_verified_at' => 'datetime', // خليه غير إلا كان فالـ DB
     ];
 
@@ -48,6 +50,11 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return (bool) $this->is_super_admin;
     }
 
     /**

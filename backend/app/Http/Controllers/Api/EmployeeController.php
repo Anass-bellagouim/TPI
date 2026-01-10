@@ -10,6 +10,49 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
+    /**
+     * ✅ قواعد التحكم:
+     * - Super Admin فقط يقدر يسير admins (delete/toggle/update/reset...).
+     * - Admin عادي يقدر يسير users فقط.
+     * - ما يمكنش self-delete ولا self-deactivate.
+     */
+    private function actor(): User
+    {
+        /** @var User $u */
+        $u = auth()->user();
+        return $u;
+    }
+
+    private function assertCanManageTarget(User $target, string $action): void
+    {
+        $actor = $this->actor();
+
+        // Safety: خاص routes تكون تحت middleware admin
+        if (!$actor->isAdmin()) {
+            abort(403, 'Forbidden.');
+        }
+
+        // منع أي action على راسك فـ delete/toggle
+        if (in_array($action, ['delete', 'toggle_active'], true) && $actor->id === $target->id) {
+            abort(403, 'You cannot perform this action on your own account.');
+        }
+
+        // إذا target هو super admin: غير super admin يقدر يمسو
+        if (method_exists($target, 'isSuperAdmin') && $target->isSuperAdmin()) {
+            if (!method_exists($actor, 'isSuperAdmin') || !$actor->isSuperAdmin()) {
+                abort(403, 'You cannot manage the super admin account.');
+            }
+        }
+
+        // إذا target هو admin:
+        // - غير super admin يقدر يسير admins
+        if ($target->role === 'admin') {
+            if (!method_exists($actor, 'isSuperAdmin') || !$actor->isSuperAdmin()) {
+                abort(403, 'Only super admin can manage admin accounts.');
+            }
+        }
+    }
+
     // GET /api/admin/employees?search=&per_page=
     public function index(Request $request)
     {
@@ -22,7 +65,6 @@ class EmployeeController extends Controller
         }
 
         $q = User::query()
-            // ✅ select only existing columns
             ->select([
                 'id',
                 'first_name',
@@ -31,6 +73,7 @@ class EmployeeController extends Controller
                 'email',
                 'role',
                 'is_active',
+                'is_super_admin', // ✅ NEW (باش UI تعرف شكون سوبر)
             ]);
 
         if ($search !== '') {
@@ -98,6 +141,12 @@ class EmployeeController extends Controller
         $u->role       = $data['role'];
         $u->password   = Hash::make($data['password']);
         $u->is_active  = array_key_exists('is_active', $data) ? (bool)$data['is_active'] : true;
+
+        // ✅ مهم: أي admin جديد ماشي super admin
+        if (property_exists($u, 'is_super_admin') || array_key_exists('is_super_admin', $u->getAttributes())) {
+            $u->is_super_admin = false;
+        }
+
         $u->save();
 
         return response()->json([
@@ -109,6 +158,7 @@ class EmployeeController extends Controller
     // GET /api/admin/employees/{user}
     public function show(User $user)
     {
+        // show مسموح حتى على admin (غير read)
         return response()->json([
             'data' => $this->shapeUser($user),
         ]);
@@ -117,6 +167,9 @@ class EmployeeController extends Controller
     // PATCH /api/admin/employees/{user}
     public function update(Request $request, User $user)
     {
+        // ✅ منع تعديل admins من غير super admin
+        $this->assertCanManageTarget($user, 'update');
+
         $data = $request->validate([
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name'  => ['sometimes', 'string', 'max:255'],
@@ -132,6 +185,11 @@ class EmployeeController extends Controller
 
         // role update
         if (array_key_exists('role', $data)) {
+            // ✅ super admin ما يتبدلش role ديالو (حماية إضافية)
+            if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+                return response()->json(['message' => 'لا يمكن تغيير role ديال super admin.'], 403);
+            }
+
             $user->role = $data['role'];
         }
 
@@ -157,7 +215,16 @@ class EmployeeController extends Controller
             }
         }
 
-        if (array_key_exists('is_active', $data)) $user->is_active = (bool) $data['is_active'];
+        // is_active update:
+        // - إذا target admin: أصلاً ما وصلناش هنا إلا super admin
+        if (array_key_exists('is_active', $data)) {
+            $user->is_active = (bool) $data['is_active'];
+
+            // revoke tokens إذا تقفل
+            if (!$user->is_active && method_exists($user, 'tokens')) {
+                $user->tokens()->delete();
+            }
+        }
 
         $user->save();
 
@@ -173,6 +240,12 @@ class EmployeeController extends Controller
      */
     public function resetPassword(Request $request, User $user)
     {
+        // ✅ نفس القاعدة: admin accounts غير super admin يقدر يمسهم
+        $this->assertCanManageTarget($user, 'reset_password');
+
+        // إذا هو admin وماشي super admin: نقدر نخليه مسموح غير للسوبر (assert دارها)
+        // لكن بقا عندك الرفض القديم: "لا يمكن إعادة تعيين كلمة مرور admin من هنا."
+        // هذا كيمنع حتى السوبر. إذا بغيتي السوبر يقدر، حيد هاد الشرط.
         if ($user->role === 'admin') {
             return response()->json([
                 'message' => 'لا يمكن إعادة تعيين كلمة مرور admin من هنا.',
@@ -195,12 +268,13 @@ class EmployeeController extends Controller
     // PATCH /api/admin/employees/{user}/toggle-active
     public function toggleActive(User $user)
     {
-        if ($user->role === 'admin') {
-            return response()->json([
-                'message' => 'لا يمكن توقيف حساب admin.',
-            ], 403);
-        }
+        // ✅ منع toggle على admins إلا super admin
+        $this->assertCanManageTarget($user, 'toggle_active');
 
+        // بقا الشرط القديم: كان كيرفض admin نهائياً
+        // دابا: user العادي مسموح، وadmin مسموح فقط للسوبر (assert)،
+        // ولكن إذا بغيتي حتى السوبر ما يوقفش admin نهائياً، رجّع الشرط القديم.
+        // هنا نخلي السوبر يقدر يوقف admin (حسب طلبك: غير admin الأول يقدر على أي admin آخر)
         $user->is_active = !$user->is_active;
         $user->save();
 
@@ -217,6 +291,9 @@ class EmployeeController extends Controller
     // DELETE /api/admin/employees/{user}
     public function destroy(User $user)
     {
+        // ✅ منع delete على admins إلا super admin + منع self-delete
+        $this->assertCanManageTarget($user, 'delete');
+
         if (method_exists($user, 'tokens')) {
             $user->tokens()->delete();
         }
@@ -240,6 +317,9 @@ class EmployeeController extends Controller
             'email' => $u->email,
             'role' => $u->role,
             'is_active' => (bool) ($u->is_active ?? true),
+
+            // ✅ NEW (باش React تعرف واش تعرض actions ولا لا)
+            'is_super_admin' => (bool) ($u->is_super_admin ?? false),
         ];
     }
 
