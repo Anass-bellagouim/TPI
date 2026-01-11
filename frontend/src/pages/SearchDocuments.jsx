@@ -20,9 +20,6 @@ function extractJudgementParts(j) {
   return { judgementIndex: m[1], year: m[2] };
 }
 
-/**
- * ✅ Remote autocomplete for Judges
- */
 function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -162,11 +159,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
   );
 }
 
-/**
- * ✅ CaseType autocomplete (Global)
- * - كتقدر تكتب الاسم ولا الرمز
- * - إذا divisionId موجود: نفلتر الأنواع بهاد الشعبة
- */
+
 function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -178,7 +171,6 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
   useEffect(() => {
     if (!value) setQ("");
     else if (!q) setQ(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   useEffect(() => {
@@ -406,9 +398,6 @@ export default function SearchDocuments() {
     try {
       setLoading(true);
 
-      // ✅ IMPORTANT:
-      // - إذا url جا كامل من pagination (next_page_url/prev_page_url) ما نزيدوش params
-      // - وإلا نستعمل params عادي
       const res = params ? await api.get(url, { params }) : await api.get(url);
 
       setPageData(res.data);
@@ -436,7 +425,6 @@ export default function SearchDocuments() {
     if (filters.judgement_number?.trim()) params.judgement_number = filters.judgement_number.trim();
     if (filters.q?.trim()) params.q = filters.q.trim();
 
-    // ✅ باش search ديما يبدا من الصفحة 1
     params.page = 1;
 
     return params;
@@ -490,16 +478,12 @@ export default function SearchDocuments() {
     return "—";
   }
 
-  // ✅ أول تحميل: عرض لائحة (paginated)
   useEffect(() => {
     fetchDocs("/documents", { per_page: perPage, page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ ملي كتبدل perPage: نعاود search بنفس الفلاتر من الصفحة 1
   useEffect(() => {
     fetchDocs("/documents/search", buildParams());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perPage]);
 
   const canPrev = !!pageData?.prev_page_url;
@@ -510,7 +494,6 @@ export default function SearchDocuments() {
       <div className="pageHeader">
         <div>
           <h2>البحث عن وثيقة</h2>
-          <p>pagination صحيحة: 10 وثائق فكل صفحة + السابق/التالي.</p>
         </div>
 
         <div className="rowActions">
@@ -524,7 +507,7 @@ export default function SearchDocuments() {
         <form onSubmit={(e) => e.preventDefault()}>
           <div className="grid3">
             <div className="field">
-              <div className="label">الشعبة (اختياري)</div>
+              <div className="label">الشعبة</div>
               <select
                 className="select"
                 value={filters.division_id}
@@ -548,7 +531,7 @@ export default function SearchDocuments() {
             </div>
 
             <div className="field">
-              <div className="label">نوع القضية (اختياري)</div>
+              <div className="label">نوع القضية</div>
               <CaseTypeAutocompleteRemote
                 divisions={divisions}
                 divisionId={filters.division_id || ""}

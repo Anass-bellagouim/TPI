@@ -179,8 +179,8 @@ function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabl
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!value) return;
-    if (!q) setQ(value);
+    // إذا جا value (code) وماكانش q معمّر، خليه يبان
+    if (value && !q) setQ(String(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
@@ -341,6 +341,10 @@ export default function AddDocument() {
   const [caseTypeCode, setCaseTypeCode] = useState("");
   const [caseTypeName, setCaseTypeName] = useState("");
 
+  // ✅ رسائل التحقق الجديدة
+  const [caseTypeMismatch, setCaseTypeMismatch] = useState("");
+  const [caseCodeLookupMsg, setCaseCodeLookupMsg] = useState(""); // كود ما لقايناهش
+
   const fileName = useMemo(() => file?.name || "", [file]);
 
   useEffect(() => {
@@ -355,10 +359,111 @@ export default function AddDocument() {
     })();
   }, []);
 
+  // ✅ helper: جبد division name بالـ id
+  const divisionNameOf = useCallback(
+    (division_id) => {
+      const d = (divisions || []).find((x) => String(x.id) === String(division_id));
+      return d?.name || "";
+    },
+    [divisions]
+  );
+
+  // ✅ Lookup case type by exact code from fileNumber middle 4 digits
+  const lookupCaseTypeByCode = useCallback(
+    async (code4) => {
+      const res = await api.get("/lookups/case-types", {
+        params: { q: String(code4 || ""), active: 1 },
+      });
+      const data = res.data?.data || [];
+      const arr = Array.isArray(data) ? data : [];
+      // حاول نلقى exact match
+      const exact = arr.find((x) => String(x.code) === String(code4));
+      return exact || null;
+    },
+    []
+  );
+
+  // ✅ 1) كلما تبدّل caseNumber: استخرج الوسط وحقق:
+  // - واش كاين caseType بنفس الرمز؟
+  // - إذا caseTypeCode خاوي: عمّر تلقائياً
+  // - إذا معمّر ومختلف: بين mismatch
+  useEffect(() => {
+    let cancelled = false;
+
+    const parts = extractCaseCodeFromFileNumber(caseNumber.trim());
+    setCaseCodeLookupMsg("");
+    setCaseTypeMismatch("");
+
+    if (!caseNumber.trim()) return;
+    if (!parts) return; // الصيغة مازال ما صحيحةش
+
+    const midCode = String(parts.caseCode);
+
+    const t = setTimeout(async () => {
+      try {
+        const it = await lookupCaseTypeByCode(midCode);
+
+        if (cancelled) return;
+
+        if (!it) {
+          // ما كاينش type بهاد الرمز
+          setCaseCodeLookupMsg(`❌ ما كاين حتى نوع قضية بالرمز: ${midCode}. صحّح رقم الملف أو الرمز.`);
+          return;
+        }
+
+        // كاين type بهاد الرمز
+        // إذا ما مختارش caseType من قبل، عمّرو تلقائياً
+        if (!caseTypeCode) {
+          setCaseTypeCode(it.code || "");
+          setCaseTypeName(it.name || "");
+
+          const dn = divisionNameOf(it.division_id);
+          setDivisionId(it?.division_id ? String(it.division_id) : "");
+          setDivisionName(dn || "");
+        } else {
+          // إذا مختار type قبل، تأكد من التطابق
+          if (String(caseTypeCode) !== String(midCode)) {
+            setCaseTypeMismatch(
+              `⚠️ كاين عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز اللي فالوسط فـ رقم الملف (${midCode}).`
+            );
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          // ما نخليوش error كبير يقطع UX
+          setCaseCodeLookupMsg("⚠️ وقع مشكل فـ التحقق من رمز نوع القضية. جرّب عاود.");
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [caseNumber, caseTypeCode, lookupCaseTypeByCode, divisionNameOf]);
+
+  // ✅ 2) كلما تبدّل caseTypeCode (من اختيار type): تأكد واش كيطابق وسط caseNumber إذا معمّر
+  useEffect(() => {
+    setCaseTypeMismatch("");
+
+    const parts = extractCaseCodeFromFileNumber(caseNumber.trim());
+    if (!parts) return;
+    if (!caseTypeCode) return;
+
+    const midCode = String(parts.caseCode);
+    if (String(caseTypeCode) !== String(midCode)) {
+      setCaseTypeMismatch(
+        `⚠️ كاين عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز اللي فالوسط فـ رقم الملف (${midCode}).`
+      );
+    }
+  }, [caseTypeCode, caseNumber]);
+
   const fileHint = useMemo(() => {
     const parts = extractCaseCodeFromFileNumber(caseNumber);
     if (!caseNumber) return { ok: null, text: "الصيغة: 10021/2101/2026" };
     if (!parts) return { ok: false, text: "رقم الملف غير صحيح. مثال: 10021/2101/2026" };
+
+    // ✅ زِد معلومات على وسط الرقم
     return { ok: true, text: `✅ الرمز المستخرج من رقم الملف: ${parts.caseCode}` };
   }, [caseNumber]);
 
@@ -378,6 +483,10 @@ export default function AddDocument() {
     setDivisionName("");
     setCaseTypeCode("");
     setCaseTypeName("");
+    setCaseTypeMismatch("");
+    setCaseCodeLookupMsg("");
+    setError("");
+    setInfo("");
   }
 
   async function fetchJudgeNames(query) {
@@ -386,6 +495,21 @@ export default function AddDocument() {
     });
     const data = res.data?.data || [];
     return (Array.isArray(data) ? data : []).map((x) => x.full_name).filter(Boolean);
+  }
+
+  function validateCaseTypeMatchesFileNumber() {
+    const cn = caseNumber.trim();
+    const ct = String(caseTypeCode || "").trim();
+    if (!cn || !ct) return null;
+
+    const parts = extractCaseCodeFromFileNumber(cn);
+    if (!parts) return null; // الصيغة كيتحقق منها بوحدها
+
+    const midCode = String(parts.caseCode);
+    if (midCode !== ct) {
+      return `عدم تطابق: وسط رقم الملف = ${midCode} ولكن رمز نوع القضية = ${ct}. خاصهم يكونو نفس الرقم.`;
+    }
+    return null;
   }
 
   async function onSubmit(e) {
@@ -408,6 +532,16 @@ export default function AddDocument() {
     if (!divisionId) return setError("اختار الشعبة قبل الرفع.");
     if (!caseTypeCode) return setError("اختار نوع القضية (بالاسم أو بالرمز) قبل الرفع.");
 
+    // ✅ تحقق التطابق قبل submit
+    const mismatch = validateCaseTypeMatchesFileNumber();
+    if (mismatch) return setError(mismatch);
+
+    // ✅ إذا رقم الملف صحيح ولكن وسطه ما كاينش فـ DB (case_types) خلّي المستخدم يعرف
+    const parts = extractCaseCodeFromFileNumber(caseNumber.trim());
+    if (parts && caseCodeLookupMsg) {
+      return setError(caseCodeLookupMsg.replace(/^❌\s*/, ""));
+    }
+
     const safeType = (caseTypeName || "").trim() || String(caseTypeCode || "").trim();
 
     try {
@@ -428,7 +562,6 @@ export default function AddDocument() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // ✅ منين كتنجح الإضافة: دير redirect لصفحة البحث
       navigate("/search", { replace: true });
     } catch (e2) {
       const msg =
@@ -527,6 +660,13 @@ export default function AddDocument() {
                 disabled={loading}
               />
               <div className="help">كتب الاسم أو الرمز (مثال 2101) حتى إلا ما اخترتيش الشعبة.</div>
+
+              {/* ✅ رسائل عدم التطابق */}
+              {caseTypeMismatch && (
+                <div className="hint hint--bad" style={{ marginTop: 6 }}>
+                  {caseTypeMismatch}
+                </div>
+              )}
             </div>
           </div>
 
@@ -543,6 +683,13 @@ export default function AddDocument() {
               <div className={`hint ${fileHint.ok === true ? "hint--ok" : fileHint.ok === false ? "hint--bad" : ""}`}>
                 {fileHint.text}
               </div>
+
+              {/* ✅ رسالة: الرمز اللي فالوسط ما موجودش فـ case_types */}
+              {caseCodeLookupMsg && (
+                <div className="hint hint--bad" style={{ marginTop: 6 }}>
+                  {caseCodeLookupMsg}
+                </div>
+              )}
             </div>
 
             <div className="field">
