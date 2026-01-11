@@ -8,16 +8,13 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getToken());
   const [user, setUser] = useState(null);
 
-  // Crucial: loading state so Guards don't redirect during startup
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
   const logout = useCallback(async () => {
     try {
-      // attempt server logout; even if it fails, we still clear local session
       await api.post("/auth/logout");
     } catch (_) {
-      // ignore
     } finally {
       clearToken();
       setToken(null);
@@ -26,14 +23,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const fetchMe = useCallback(async () => {
-    // Called only when token exists
     const res = await api.get("/auth/me");
-    // Depending on backend shape: either res.data.user or res.data
     const me = res.data?.user ?? res.data;
     return me;
   }, []);
 
-  // Startup: if token exists -> validate it by calling /auth/me
   useEffect(() => {
     let isMounted = true;
 
@@ -43,7 +37,6 @@ export function AuthProvider({ children }) {
 
       const storedToken = getToken();
       if (!storedToken) {
-        // no token => not authenticated, but finished loading
         if (isMounted) {
           setToken(null);
           setUser(null);
@@ -52,15 +45,12 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // sync state token with storage
       if (isMounted) setToken(storedToken);
 
       try {
         const me = await fetchMe();
 
-        // Optional: check is_active in UI too
         if (me?.is_active === false) {
-          // account disabled => clear session
           clearToken();
           if (isMounted) {
             setToken(null);
@@ -71,11 +61,9 @@ export function AuthProvider({ children }) {
           if (isMounted) setUser(me);
         }
       } catch (err) {
-        // If /me fails with 401, api interceptor already cleared token.
-        // Here we just reflect state accordingly.
         if (isMounted) {
           setUser(null);
-          setToken(getToken()); // might be null if interceptor cleared it
+          setToken(getToken());
           setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "ME_FAILED");
         }
       } finally {
@@ -101,7 +89,6 @@ export function AuthProvider({ children }) {
         throw new Error("Invalid login response");
       }
 
-      // Persist token first
       persistToken(newToken);
 
       setToken(newToken);
@@ -127,7 +114,6 @@ export function AuthProvider({ children }) {
       login,
       logout,
 
-      // useful if you want manual refresh after profile update
       refreshMe: async () => {
         setIsLoading(true);
         setAuthError(null);

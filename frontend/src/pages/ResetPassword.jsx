@@ -57,7 +57,7 @@ export default function ResetPassword() {
           ? "المعطيات غير صحيحة (تأكد من كلمة المرور أو صلاحية الرابط)"
           : status === 403
           ? "هذه العملية متاحة للإدارة فقط"
-          : "وقع خطأ أثناء إعادة تعيين كلمة المرور");
+          : "حدث خطأ أثناء إعادة تعيين كلمة المرور");
       setErr(msg);
     } finally {
       setLoading(false);
@@ -69,13 +69,12 @@ export default function ResetPassword() {
       <div className="card authCard">
         <h2>إعادة تعيين كلمة المرور</h2>
 
-        {/* Debug info باش تتأكد أنه كيقرا token/email */}
         <div className="help" style={{ marginBottom: 10, opacity: 0.9 }}>
           <div>
-            <strong>Email:</strong> {email || "—"}
+            <strong>البريد الإلكتروني:</strong> {email || "—"}
           </div>
           <div>
-            <strong>Token:</strong> {token ? `${token.slice(0, 12)}...` : "—"}
+            <strong>الرمز (Token):</strong> {token ? `${token.slice(0, 12)}...` : "—"}
           </div>
         </div>
 
@@ -114,7 +113,7 @@ export default function ResetPassword() {
           </button>
 
           <div className="help" style={{ marginTop: 10 }}>
-            <Link to="/login">الرجوع لتسجيل الدخول</Link>
+            <Link to="/login">الرجوع إلى تسجيل الدخول</Link>
           </div>
         </form>
       </div>

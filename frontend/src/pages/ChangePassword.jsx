@@ -16,14 +16,15 @@ export default function ChangePassword() {
   function validate() {
     if (!current) return "كلمة المرور الحالية مطلوبة.";
     if (!password) return "كلمة المرور الجديدة مطلوبة.";
-    if (password.length < 6) return "كلمة المرور الجديدة خاصها تكون على الأقل 6 حروف.";
+    if (password.length < 6) return "يجب أن تكون كلمة المرور الجديدة على الأقل 6 أحرف.";
     if (password !== confirm) return "تأكيد كلمة المرور غير مطابق.";
     return "";
   }
 
   async function submit(e) {
     e.preventDefault();
-    setErr(""); setMsg("");
+    setErr("");
+    setMsg("");
 
     const v = validate();
     if (v) return setErr(v);
@@ -31,7 +32,6 @@ export default function ChangePassword() {
     try {
       setLoading(true);
 
-      // ✅ خيار 1: endpoint مخصص (أفضل)
       try {
         const res = await api.patch("/auth/change-password", {
           current_password: current,
@@ -39,13 +39,12 @@ export default function ChangePassword() {
           password_confirmation: confirm,
         });
         setMsg(res.data?.message || "✅ تم تغيير كلمة المرور.");
-        setCurrent(""); setPassword(""); setConfirm("");
+        setCurrent("");
+        setPassword("");
+        setConfirm("");
         return;
-      } catch (e1) {
-        // fallback
-      }
+      } catch (e1) {}
 
-      // ✅ خيار 2: fallback على employees/{id}/password
       if (!user?.id) throw new Error("user id missing");
 
       const res2 = await api.patch(`/employees/${user.id}/password`, {
@@ -55,7 +54,9 @@ export default function ChangePassword() {
       });
 
       setMsg(res2.data?.message || "✅ تم تغيير كلمة المرور.");
-      setCurrent(""); setPassword(""); setConfirm("");
+      setCurrent("");
+      setPassword("");
+      setConfirm("");
     } catch (e2) {
       setErr(e2?.response?.data?.message || "فشل تغيير كلمة المرور.");
     } finally {
@@ -68,12 +69,19 @@ export default function ChangePassword() {
       <div className="pageHeader">
         <div>
           <h2>تغيير كلمة المرور</h2>
-          <p>حساب: <strong>{user?.full_name || user?.username || "—"}</strong></p>
         </div>
       </div>
 
-      {msg && <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>{msg}</div>}
-      {err && <div className="alert alertError card" style={{ marginBottom: 14 }}><strong>خطأ:</strong> {err}</div>}
+      {msg && (
+        <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>
+          {msg}
+        </div>
+      )}
+      {err && (
+        <div className="alert alertError card" style={{ marginBottom: 14 }}>
+          <strong>خطأ:</strong> {err}
+        </div>
+      )}
 
       <div className="card">
         <form onSubmit={submit} className="form" style={{ maxWidth: 520 }}>
@@ -95,10 +103,6 @@ export default function ChangePassword() {
           <button className="btn btnPrimary" disabled={loading}>
             {loading ? "جاري التغيير..." : "تغيير"}
           </button>
-
-          <div className="help" style={{ marginTop: 10 }}>
-            ملاحظة: إذا endpoint ديال change-password ما كاينش فالـ backend، الصفحة غادي تستعمل fallback.
-          </div>
         </form>
       </div>
     </div>

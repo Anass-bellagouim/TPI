@@ -8,10 +8,10 @@ export default function RequireAuth() {
   const location = useLocation();
 
   if (isLoading) {
-    return <div style={{ padding: 20 }}>جاري التحقق من الجلسة...</div>;
+    return <div style={{ padding: 20 }}>جارٍ التحقق من الجلسة...</div>;
   }
 
-  // ✅ أهم سطر: نعتمد على user فقط
+  // ✅ السطر الأهم: الاعتماد فقط على وجود المستخدم (user)
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

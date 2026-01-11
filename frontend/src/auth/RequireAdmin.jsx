@@ -8,7 +8,7 @@ export default function RequireAdmin() {
   const location = useLocation();
 
   if (isLoading) {
-    return <div style={{ padding: 20 }}>التحقق من الصلاحيات...</div>;
+    return <div style={{ padding: 20 }}>جارٍ التحقق من الصلاحيات...</div>;
   }
 
   if (!user) {

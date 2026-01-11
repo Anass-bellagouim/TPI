@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
     try {
       await api.post("/auth/logout");
     } catch (_) {
-      // ignore
+      // يتم تجاهل الخطأ
     } finally {
       clearToken();
       setToken(null);

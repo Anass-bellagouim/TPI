@@ -1,6 +1,8 @@
+// src/pages/CaseTypesAdmin.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 function norm(s) {
   return (s || "").toString().trim().toLowerCase();
@@ -42,13 +44,16 @@ export default function CaseTypesAdmin() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
+  // ✅ confirm modal (delete)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmRow, setConfirmRow] = useState(null);
+
   async function fetchDivisions() {
     const res = await api.get("/admin/divisions");
     const data = res.data?.data || res.data || [];
     setDivisions(Array.isArray(data) ? data : []);
   }
 
-  // ✅ جلب case types غير ملي كتبدّل division (ولا refresh)
   async function fetchCaseTypes() {
     setError("");
     setInfo("");
@@ -62,12 +67,12 @@ export default function CaseTypesAdmin() {
       const arr = Array.isArray(data) ? data : [];
       setRows(arr);
 
-      if ((arr?.length || 0) === 0) setInfo("ما كاين حتى نوع قضية فهاد الشعبة دابا.");
+      if ((arr?.length || 0) === 0) setInfo("لا يوجد أي نوع قضية في هذه الشعبة حاليًا.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء جلب أنواع القضايا.";
+        "حدث خطأ أثناء جلب أنواع القضايا.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -80,7 +85,7 @@ export default function CaseTypesAdmin() {
 
   useEffect(() => {
     setPage(1);
-    setQ(""); // ✅ منين كتبدّل الشعبة نفرّغ البحث تلقائياً
+    setQ("");
     fetchCaseTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [divisionId]);
@@ -110,12 +115,12 @@ export default function CaseTypesAdmin() {
     setError("");
     setInfo("");
 
-    if (!divisionId) return setError("اختار الشعبة أولا.");
+    if (!divisionId) return setError("اختر الشعبة أولًا.");
     const code = form.code.trim();
     const name = form.name.trim();
 
-    if (!/^\d{4}$/.test(code)) return setError("رمز القضية خاصو يكون 4 أرقام (مثال: 2101).");
-    if (!name) return setError("اسم القضية ضروري.");
+    if (!/^\d{4}$/.test(code)) return setError("رمز القضية يجب أن يكون 4 أرقام (مثال: 2101).");
+    if (!name) return setError("اسم القضية مطلوب.");
 
     try {
       setSaving(true);
@@ -134,7 +139,7 @@ export default function CaseTypesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء الإضافة.";
+        "حدث خطأ أثناء الإضافة.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -164,8 +169,8 @@ export default function CaseTypesAdmin() {
     const code = (edit.code || "").trim();
     const name = (edit.name || "").trim();
 
-    if (!/^\d{4}$/.test(code)) return setError("رمز القضية خاصو يكون 4 أرقام (مثال: 2101).");
-    if (!name) return setError("اسم القضية ضروري.");
+    if (!/^\d{4}$/.test(code)) return setError("رمز القضية يجب أن يكون 4 أرقام (مثال: 2101).");
+    if (!name) return setError("اسم القضية مطلوب.");
 
     const currentRow = rows.find((r) => r.id === id);
     const latestIsActive = currentRow ? !!currentRow.is_active : !!editingIsActive;
@@ -186,23 +191,31 @@ export default function CaseTypesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التحديث.";
+        "حدث خطأ أثناء التحديث.";
       setError(msg);
     } finally {
       setSaving(false);
     }
   }
 
-  async function removeRow(id) {
+  // ✅ بدل confirm: فتح modal
+  function askRemoveRow(row) {
+    setError("");
+    setInfo("");
+    setConfirmRow(row);
+    setConfirmOpen(true);
+  }
+
+  // ✅ نفس منطق الحذف الحقيقي
+  async function doRemoveRow() {
+    if (!confirmRow) return;
+
     setError("");
     setInfo("");
 
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد نوع القضية؟");
-    if (!ok) return;
-
     try {
       setSaving(true);
-      const res = await api.delete(`/admin/case-types/${id}`);
+      const res = await api.delete(`/admin/case-types/${confirmRow.id}`);
       setInfo(res.data?.message || "تم الحذف.");
       await fetchCaseTypes();
       setPage(1);
@@ -210,10 +223,12 @@ export default function CaseTypesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء الحذف.";
+        "حدث خطأ أثناء الحذف.";
       setError(msg);
     } finally {
       setSaving(false);
+      setConfirmOpen(false);
+      setConfirmRow(null);
     }
   }
 
@@ -242,7 +257,7 @@ export default function CaseTypesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التفعيل/التعطيل.";
+        "حدث خطأ أثناء التفعيل/التعطيل.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -254,14 +269,12 @@ export default function CaseTypesAdmin() {
     return d?.name || "";
   }, [divisions, divisionId]);
 
-  // ✅ sort local (display)
   const sortedRows = useMemo(() => {
     const arr = Array.isArray(rows) ? [...rows] : [];
     arr.sort((a, b) => String(a?.code || "").localeCompare(String(b?.code || "")));
     return arr;
   }, [rows]);
 
-  // ✅ LIVE FILTER (client-side) بلا API وبلا buttons
   const displayRows = useMemo(() => {
     const qq = norm(q);
     if (!qq) return sortedRows;
@@ -272,14 +285,12 @@ export default function CaseTypesAdmin() {
     });
   }, [sortedRows, q]);
 
-  // ✅ pagination على displayRows
   const total = displayRows.length;
   const lastPage = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(Math.max(1, page), lastPage);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage]);
 
   const pagedRows = useMemo(() => {
@@ -295,7 +306,6 @@ export default function CaseTypesAdmin() {
       <div className="pageHeader">
         <div>
           <h2>إدارة أنواع القضايا</h2>
-          <p>اختار الشعبة ثم زيد القضايا ديالها بالرمز (4 أرقام) + حالة Active/Inactive.</p>
         </div>
 
         <div className="headerActions">
@@ -303,7 +313,7 @@ export default function CaseTypesAdmin() {
             تحديث
           </button>
           <button className="btn btnSecondary" type="button" onClick={() => nav("/divisions")}>
-            رجوع للشعب
+            رجوع إلى الشعب
           </button>
         </div>
       </div>
@@ -320,7 +330,6 @@ export default function CaseTypesAdmin() {
         </div>
       )}
 
-      {/* اختيار الشعبة */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="gridTop">
           <div className="field">
@@ -333,22 +342,16 @@ export default function CaseTypesAdmin() {
                 </option>
               ))}
             </select>
-            <div className="help">الشعبة الحالية: {divisionName || "—"}</div>
-          </div>
-
-          <div className="help" style={{ alignSelf: "end" }}>
-            نصيحة: الرمز خاصو يكون <b>4 أرقام</b> (مثال: 2101)
           </div>
         </div>
       </div>
 
-      {/* Add */}
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 className="cardTitle">إضافة نوع قضية</h3>
 
         <form onSubmit={onAdd} className="gridAdd">
           <div className="field">
-            <div className="label">الرمز (4 أرقام)</div>
+            <div className="label">الرمز</div>
             <input
               className="input"
               value={form.code}
@@ -372,13 +375,8 @@ export default function CaseTypesAdmin() {
           <div className="field">
             <div className="label">الحالة</div>
             <label className="check">
-              <input
-                type="checkbox"
-                checked={!!form.is_active}
-                onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
-                disabled={saving || !divisionId}
-              />
-              <span>Active</span>
+              <input type="checkbox" checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} disabled={saving || !divisionId} />
+              <span>مفعّلة</span>
             </label>
           </div>
 
@@ -389,10 +387,9 @@ export default function CaseTypesAdmin() {
           </div>
         </form>
 
-        {!divisionId && <div className="help" style={{ marginTop: 8 }}>اختار الشعبة أولا باش تقدر تزيد القضايا.</div>}
+        {!divisionId && <div className="help" style={{ marginTop: 8 }}>اختر الشعبة أولًا لكي تتمكن من إضافة القضايا.</div>}
       </div>
 
-      {/* List */}
       <div className="card">
         <div className="listTop" style={{ alignItems: "center" }}>
           <div>
@@ -404,19 +401,17 @@ export default function CaseTypesAdmin() {
             </div>
           </div>
 
-          {/* ✅ LIVE SEARCH + perPage (بلا buttons) */}
           <div className="searchBox" style={{ minWidth: 360, display: "flex", gap: 10, alignItems: "center" }}>
             <div style={{ flex: 1, position: "relative" }}>
               <input
                 className="input input--sm"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="كتب باش يفلتر (بالرمز أو الاسم)..."
+                placeholder="اكتب للتصفية (بالرمز أو الاسم)..."
                 disabled={saving}
                 style={{ paddingLeft: 34 }}
               />
 
-              {/* ✅ clear داخل input (ماشي زر تصفير) */}
               {!!q && (
                 <button
                   type="button"
@@ -442,12 +437,7 @@ export default function CaseTypesAdmin() {
             </div>
 
             <div className="field" style={{ minWidth: 90 }}>
-              <select
-                className="select select--sm"
-                value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
-                disabled={loading || saving}
-              >
+              <select className="select select--sm" value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} disabled={loading || saving}>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -493,12 +483,7 @@ export default function CaseTypesAdmin() {
                     <tr key={r.id}>
                       <td>
                         {isEditing ? (
-                          <input
-                            className="input input--sm"
-                            value={edit.code}
-                            onChange={(e) => setEdit((p) => ({ ...p, code: e.target.value }))}
-                            disabled={saving}
-                          />
+                          <input className="input input--sm" value={edit.code} onChange={(e) => setEdit((p) => ({ ...p, code: e.target.value }))} disabled={saving} />
                         ) : (
                           <b>{r.code}</b>
                         )}
@@ -506,12 +491,7 @@ export default function CaseTypesAdmin() {
 
                       <td>
                         {isEditing ? (
-                          <input
-                            className="input input--sm"
-                            value={edit.name}
-                            onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
-                            disabled={saving}
-                          />
+                          <input className="input input--sm" value={edit.name} onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))} disabled={saving} />
                         ) : (
                           r.name
                         )}
@@ -524,12 +504,7 @@ export default function CaseTypesAdmin() {
                           onClick={() => quickToggle(r)}
                           disabled={saving}
                           title={r.is_active ? "اضغط لتعطيل نوع القضية" : "اضغط لتفعيل نوع القضية"}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: saving ? "not-allowed" : "pointer",
-                            padding: 0,
-                          }}
+                          style={{ background: "transparent", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: 0 }}
                         >
                           {r.is_active ? "Active" : "Inactive"}
                         </button>
@@ -551,7 +526,8 @@ export default function CaseTypesAdmin() {
                               <button className="btn btnSecondary btn--sm" type="button" disabled={saving} onClick={() => startEdit(r)}>
                                 تعديل
                               </button>
-                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => removeRow(r.id)}>
+
+                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => askRemoveRow(r)}>
                                 حذف
                               </button>
                             </>
@@ -566,35 +542,32 @@ export default function CaseTypesAdmin() {
         </div>
 
         <div className="pager" style={{ marginTop: 12 }}>
-          <div className="help">
-            عرض {pagedRows.length} من {total} — per page: <b>{perPage}</b>
-          </div>
-
           <div className="rowActions">
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={!canPrev || loading || saving}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
+            <button className="btn btnSecondary" type="button" disabled={!canPrev || loading || saving} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               السابق
             </button>
 
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={!canNext || loading || saving}
-              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-            >
+            <button className="btn btnSecondary" type="button" disabled={!canNext || loading || saving} onClick={() => setPage((p) => Math.min(lastPage, p + 1))}>
               التالي
             </button>
           </div>
         </div>
-
-        <div className="help" style={{ marginTop: 10 }}>
-          ملاحظة: تقدر تبدّل الحالة Active/Inactive حتى وانت فـ تعديل. Inactive ما كيبانش فـ lookups ديال المستخدمين.
-        </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        danger
+        title="حذف نوع القضية نهائيًا"
+        message={`هل أنت متأكد أنك تريد حذف نوع القضية: "${confirmRow?.name || ""}" (الرمز: ${confirmRow?.code || "—"})؟ هذه العملية نهائية.`}
+        confirmText="نعم، احذف"
+        cancelText="إلغاء"
+        loading={saving}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setConfirmRow(null);
+        }}
+        onConfirm={doRemoveRow}
+      />
     </div>
   );
 }

@@ -93,17 +93,47 @@ body {
   font-size: var(--fs);
   line-height: var(--lh);
   color: var(--text);
+  background: var(--bg);
+  position: relative;
+  isolation: isolate;
+}
+
+/* ✅ Moroccan ZLIG background with 50% opacity */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+
+  background-image: url("/img/ZLIG.avif");
+  background-repeat: repeat;
+  background-size: 520px auto;
+  background-position: center;
+
+  opacity: 0.5; /* ✅ 50% flow */
+  filter: saturate(1.05) contrast(1.02);
+}
+
+/* ✅ Soft overlay فوق الزليج باش المحتوى يبقى واضح */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
   background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(0, 98, 51, 0.08), transparent 55%),
-    radial-gradient(900px 500px at 10% 0%, rgba(193, 39, 45, 0.10), transparent 55%),
-    var(--bg);
+    radial-gradient(1200px 600px at 85% -10%, rgba(0, 98, 51, 0.06), transparent 55%),
+    radial-gradient(900px 500px at 10% 0%, rgba(193, 39, 45, 0.06), transparent 55%),
+    rgba(246, 245, 242, 0.35);
 }
 
 /* وخليه غير فـ بلايص الكتابة */
 input,
 textarea,
 [contenteditable="true"] {
-  caret-color: auto; /* ولا caret-color: var(--text); */
+  caret-color: auto;
 }
 
 /* RTL helper */
@@ -694,7 +724,6 @@ iframe { background: #fff; }
   opacity: 0.9;
 }
 
-
 /* ===============================
    Login Page – Professional Moroccan Style
    =============================== */
@@ -791,4 +820,182 @@ iframe { background: #fff; }
   .authVisual img {
     width: 60%;
   }
+}
+
+/* =========================================================
+   AddDocument – PDF Left + Inputs Right (RTL friendly)
+   ضع هذا القسم في آخر: src/styles/app.css
+   ========================================================= */
+
+.addDocTop {
+  display: grid;
+  gap: var(--s-3);
+  align-items: stretch;
+}
+
+/* ✅ desktop: left PDF (col 1) + right inputs (col 2) */
+.addDocTop--pdfLeft {
+  grid-template-columns: 0.95fr 1.25fr;
+  margin-top: 30px;
+}
+
+/* ✅ ensure PDF is visually on the LEFT, inputs on RIGHT */
+.addDocTop--pdfLeft .pdfBox {
+  grid-column: 1;
+}
+.addDocTop--pdfLeft .addDocInputs {
+  grid-column: 2;
+}
+
+
+@media (max-width: 980px) {
+  .addDocTop--pdfLeft {
+    grid-template-columns: 1fr;
+  }
+  .addDocTop--pdfLeft .pdfBox,
+  .addDocTop--pdfLeft .addDocInputs {
+    grid-column: auto;
+  }
+}
+
+/* ---------- PDF Box ---------- */
+.pdfBox__title {
+  font-weight: 950;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.pdfDrop {
+  display: block;
+  border: 1px dashed var(--border-2);
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, background 0.12s ease;
+  min-height: 280px; /* ✅ مربع كبير */
+}
+
+.pdfDrop:hover {
+  border-color: rgba(193, 39, 45, 0.35);
+  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.08);
+}
+
+.pdfDrop:active {
+  transform: translateY(1px);
+}
+
+.pdfDrop.is-picked {
+  border-style: solid;
+  border-color: rgba(0, 98, 51, 0.25);
+  background: rgba(0, 98, 51, 0.06);
+}
+
+.pdfInput {
+  display: none; /* ✅ نخبي input الحقيقي */
+}
+
+.pdfDrop__empty,
+.pdfDrop__picked {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+/* React icon style */
+.pdfIcon {
+  width: 86px;
+  height: 86px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  border: 1px solid rgba(193, 39, 45, 0.18);
+  background: linear-gradient(180deg, rgba(193, 39, 45, 0.12), rgba(0, 98, 51, 0.08));
+  color: var(--primary);
+}
+
+.reactMark {
+  display: block;
+  filter: drop-shadow(0 10px 18px rgba(17, 24, 39, 0.10));
+}
+
+.pdfDrop__big {
+  font-weight: 950;
+  font-size: 16px;
+}
+
+.pdfDrop__small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pdfDrop__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 950;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Picked state layout */
+.pdfDrop__picked {
+  grid-template-columns: auto 1fr auto;
+  text-align: start;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdfPicked__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 98, 51, 0.22);
+  background: rgba(0, 98, 51, 0.10);
+  color: var(--morocco-green);
+}
+
+.pdfPicked__meta {
+  overflow: hidden;
+}
+
+.pdfPicked__name {
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdfPicked__hint {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pdfPicked__clear {
+  appearance: none;
+  border: 1px solid rgba(193, 39, 45, 0.25);
+  background: rgba(193, 39, 45, 0.10);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.pdfPicked__clear:hover {
+  background: rgba(193, 39, 45, 0.14);
+}
+
+.pdfPicked__clear:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

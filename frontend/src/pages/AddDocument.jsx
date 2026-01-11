@@ -1,3 +1,4 @@
+// src/pages/AddDocument.jsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api.js";
@@ -20,10 +21,6 @@ function extractJudgementParts(j) {
   return { judgementIndex: m[1], year: m[2] };
 }
 
-/**
- * ✅ Remote autocomplete (for Judges)
- * - calls fetchOptions(query) => returns array of strings
- */
 function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -123,13 +120,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
             }
           }}
         />
-        <button
-          type="button"
-          className="ac__toggle"
-          tabIndex={-1}
-          disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
-        >
+        <button type="button" className="ac__toggle" tabIndex={-1} disabled={disabled} onClick={() => setOpen((v) => !v)}>
           ▾
         </button>
       </div>
@@ -139,7 +130,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى اقتراح.</div>
+            <div className="ac__empty">لا توجد أي اقتراحات.</div>
           ) : (
             filtered.map((o, idx) => (
               <button
@@ -165,11 +156,6 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
   );
 }
 
-/**
- * ✅ Global CaseType autocomplete
- * - تقدر تكتب الاسم ولا الرمز بلا ما تختار الشعبة
- * - منين كتختار type => كيرجع it فيه division_id وكنعمّرو الشعبة تلقائياً
- */
 function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -179,10 +165,8 @@ function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabl
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // إذا جا value (code) وماكانش q معمّر، خليه يبان
     if (value && !q) setQ(String(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, q]);
 
   useEffect(() => {
     function onDoc(e) {
@@ -285,7 +269,7 @@ function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabl
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى نوع مطابق.</div>
+            <div className="ac__empty">لا يوجد أي نوع مطابق.</div>
           ) : (
             filtered.map((it, idx) => (
               <button
@@ -321,6 +305,22 @@ function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabl
   );
 }
 
+function UploadArrowIcon({ size = 54 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="uploadMark">
+      <path
+        fill="currentColor"
+        d="M12 3a1 1 0 0 1 .7.29l4.5 4.5a1 1 0 1 1-1.4 1.42L13 6.41V15a1 1 0 1 1-2 0V6.41L8.2 9.21A1 1 0 1 1 6.8 7.79l4.5-4.5A1 1 0 0 1 12 3z"
+      />
+      <path
+        fill="currentColor"
+        d="M5 14a1 1 0 0 1 1 1v3h12v-3a1 1 0 1 1 2 0v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a1 1 0 0 1 1-1z"
+      />
+    </svg>
+  );
+}
+
+
 export default function AddDocument() {
   const navigate = useNavigate();
 
@@ -341,9 +341,8 @@ export default function AddDocument() {
   const [caseTypeCode, setCaseTypeCode] = useState("");
   const [caseTypeName, setCaseTypeName] = useState("");
 
-  // ✅ رسائل التحقق الجديدة
   const [caseTypeMismatch, setCaseTypeMismatch] = useState("");
-  const [caseCodeLookupMsg, setCaseCodeLookupMsg] = useState(""); // كود ما لقايناهش
+  const [caseCodeLookupMsg, setCaseCodeLookupMsg] = useState("");
 
   const fileName = useMemo(() => file?.name || "", [file]);
 
@@ -359,7 +358,6 @@ export default function AddDocument() {
     })();
   }, []);
 
-  // ✅ helper: جبد division name بالـ id
   const divisionNameOf = useCallback(
     (division_id) => {
       const d = (divisions || []).find((x) => String(x.id) === String(division_id));
@@ -368,25 +366,16 @@ export default function AddDocument() {
     [divisions]
   );
 
-  // ✅ Lookup case type by exact code from fileNumber middle 4 digits
-  const lookupCaseTypeByCode = useCallback(
-    async (code4) => {
-      const res = await api.get("/lookups/case-types", {
-        params: { q: String(code4 || ""), active: 1 },
-      });
-      const data = res.data?.data || [];
-      const arr = Array.isArray(data) ? data : [];
-      // حاول نلقى exact match
-      const exact = arr.find((x) => String(x.code) === String(code4));
-      return exact || null;
-    },
-    []
-  );
+  const lookupCaseTypeByCode = useCallback(async (code4) => {
+    const res = await api.get("/lookups/case-types", {
+      params: { q: String(code4 || ""), active: 1 },
+    });
+    const data = res.data?.data || [];
+    const arr = Array.isArray(data) ? data : [];
+    const exact = arr.find((x) => String(x.code) === String(code4));
+    return exact || null;
+  }, []);
 
-  // ✅ 1) كلما تبدّل caseNumber: استخرج الوسط وحقق:
-  // - واش كاين caseType بنفس الرمز؟
-  // - إذا caseTypeCode خاوي: عمّر تلقائياً
-  // - إذا معمّر ومختلف: بين mismatch
   useEffect(() => {
     let cancelled = false;
 
@@ -395,7 +384,7 @@ export default function AddDocument() {
     setCaseTypeMismatch("");
 
     if (!caseNumber.trim()) return;
-    if (!parts) return; // الصيغة مازال ما صحيحةش
+    if (!parts) return;
 
     const midCode = String(parts.caseCode);
 
@@ -406,13 +395,10 @@ export default function AddDocument() {
         if (cancelled) return;
 
         if (!it) {
-          // ما كاينش type بهاد الرمز
-          setCaseCodeLookupMsg(`❌ ما كاين حتى نوع قضية بالرمز: ${midCode}. صحّح رقم الملف أو الرمز.`);
+          setCaseCodeLookupMsg(`❌ لا يوجد أي نوع قضية بالرمز: ${midCode}. صحّح رقم الملف أو الرمز.`);
           return;
         }
 
-        // كاين type بهاد الرمز
-        // إذا ما مختارش caseType من قبل، عمّرو تلقائياً
         if (!caseTypeCode) {
           setCaseTypeCode(it.code || "");
           setCaseTypeName(it.name || "");
@@ -421,17 +407,13 @@ export default function AddDocument() {
           setDivisionId(it?.division_id ? String(it.division_id) : "");
           setDivisionName(dn || "");
         } else {
-          // إذا مختار type قبل، تأكد من التطابق
           if (String(caseTypeCode) !== String(midCode)) {
-            setCaseTypeMismatch(
-              `⚠️ كاين عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز اللي فالوسط فـ رقم الملف (${midCode}).`
-            );
+            setCaseTypeMismatch(`⚠️ يوجد عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز الموجود في منتصف رقم الملف (${midCode}).`);
           }
         }
       } catch (e) {
         if (!cancelled) {
-          // ما نخليوش error كبير يقطع UX
-          setCaseCodeLookupMsg("⚠️ وقع مشكل فـ التحقق من رمز نوع القضية. جرّب عاود.");
+          setCaseCodeLookupMsg("⚠️ حدثت مشكلة أثناء التحقق من رمز نوع القضية. حاول مرة أخرى.");
         }
       }
     }, 350);
@@ -442,7 +424,6 @@ export default function AddDocument() {
     };
   }, [caseNumber, caseTypeCode, lookupCaseTypeByCode, divisionNameOf]);
 
-  // ✅ 2) كلما تبدّل caseTypeCode (من اختيار type): تأكد واش كيطابق وسط caseNumber إذا معمّر
   useEffect(() => {
     setCaseTypeMismatch("");
 
@@ -452,9 +433,7 @@ export default function AddDocument() {
 
     const midCode = String(parts.caseCode);
     if (String(caseTypeCode) !== String(midCode)) {
-      setCaseTypeMismatch(
-        `⚠️ كاين عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز اللي فالوسط فـ رقم الملف (${midCode}).`
-      );
+      setCaseTypeMismatch(`⚠️ يوجد عدم تطابق: رمز نوع القضية المختار (${caseTypeCode}) ≠ الرمز الموجود في منتصف رقم الملف (${midCode}).`);
     }
   }, [caseTypeCode, caseNumber]);
 
@@ -462,8 +441,6 @@ export default function AddDocument() {
     const parts = extractCaseCodeFromFileNumber(caseNumber);
     if (!caseNumber) return { ok: null, text: "الصيغة: 10021/2101/2026" };
     if (!parts) return { ok: false, text: "رقم الملف غير صحيح. مثال: 10021/2101/2026" };
-
-    // ✅ زِد معلومات على وسط الرقم
     return { ok: true, text: `✅ الرمز المستخرج من رقم الملف: ${parts.caseCode}` };
   }, [caseNumber]);
 
@@ -490,9 +467,7 @@ export default function AddDocument() {
   }
 
   async function fetchJudgeNames(query) {
-    const res = await api.get("/lookups/judges", {
-      params: { q: query || "", active: 1 },
-    });
+    const res = await api.get("/lookups/judges", { params: { q: query || "", active: 1 } });
     const data = res.data?.data || [];
     return (Array.isArray(data) ? data : []).map((x) => x.full_name).filter(Boolean);
   }
@@ -503,11 +478,11 @@ export default function AddDocument() {
     if (!cn || !ct) return null;
 
     const parts = extractCaseCodeFromFileNumber(cn);
-    if (!parts) return null; // الصيغة كيتحقق منها بوحدها
+    if (!parts) return null;
 
     const midCode = String(parts.caseCode);
     if (midCode !== ct) {
-      return `عدم تطابق: وسط رقم الملف = ${midCode} ولكن رمز نوع القضية = ${ct}. خاصهم يكونو نفس الرقم.`;
+      return `عدم تطابق: وسط رقم الملف = ${midCode} ولكن رمز نوع القضية = ${ct}. يجب أن يكونا الرقم نفسه.`;
     }
     return null;
   }
@@ -517,26 +492,24 @@ export default function AddDocument() {
     setError("");
     setInfo("");
 
-    if (!file) return setError("خاصك تختار ملف PDF قبل الرفع.");
+    if (!file) return setError("يجب اختيار ملف PDF قبل الرفع.");
     if (file.type !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
-      return setError("الملف خاصو يكون PDF.");
+      return setError("يجب أن يكون الملف بصيغة PDF.");
     }
 
     if (caseNumber.trim() && !extractCaseCodeFromFileNumber(caseNumber.trim())) {
-      return setError("رقم الملف خاصو يكون بحال: 10021/2101/2026");
+      return setError("رقم الملف يجب أن يكون مثل: 10021/2101/2026");
     }
     if (judgementNumber.trim() && !extractJudgementParts(judgementNumber.trim())) {
-      return setError("رقم الحكم خاصو يكون بحال: 12/2026");
+      return setError("رقم الحكم يجب أن يكون مثل: 12/2026");
     }
 
-    if (!divisionId) return setError("اختار الشعبة قبل الرفع.");
-    if (!caseTypeCode) return setError("اختار نوع القضية (بالاسم أو بالرمز) قبل الرفع.");
+    if (!divisionId) return setError("اختر الشعبة قبل الرفع.");
+    if (!caseTypeCode) return setError("اختر نوع القضية (بالاسم أو بالرمز) قبل الرفع.");
 
-    // ✅ تحقق التطابق قبل submit
     const mismatch = validateCaseTypeMatchesFileNumber();
     if (mismatch) return setError(mismatch);
 
-    // ✅ إذا رقم الملف صحيح ولكن وسطه ما كاينش فـ DB (case_types) خلّي المستخدم يعرف
     const parts = extractCaseCodeFromFileNumber(caseNumber.trim());
     if (parts && caseCodeLookupMsg) {
       return setError(caseCodeLookupMsg.replace(/^❌\s*/, ""));
@@ -558,9 +531,7 @@ export default function AddDocument() {
       fd.append("keyword", String(caseTypeCode).trim());
       fd.append("type", safeType);
 
-      await api.post("/documents", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.post("/documents", fd, { headers: { "Content-Type": "multipart/form-data" } });
 
       navigate("/search", { replace: true });
     } catch (e2) {
@@ -579,7 +550,6 @@ export default function AddDocument() {
       <div className="pageHeader">
         <div>
           <h2>إضافة وثيقة</h2>
-          <p>رفع PDF + اختيار (الشعبة + نوع القضية + القاضي) من قاعدة البيانات.</p>
         </div>
 
         <div className="headerActions">
@@ -603,120 +573,156 @@ export default function AddDocument() {
 
       <div className="card">
         <form onSubmit={onSubmit}>
-          <div className="field" style={{ marginBottom: 12 }}>
-            <div className="label">ملف PDF</div>
-            <input
-              className="input"
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              disabled={loading}
-            />
-            <div className="help" style={{ marginTop: 6 }}>
-              {file ? `الملف المختار: ${file.name}` : "اختار ملف PDF."}
+          {/* ✅ LEFT PDF + RIGHT inputs */}
+          <div className="addDocTop addDocTop--pdfLeft">
+            {/* LEFT: PDF upload */}
+            <div className="pdfBox">
+              <label className={`pdfDrop ${file ? "is-picked" : ""}`}>
+                <input
+                  className="pdfInput"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  disabled={loading}
+                />
+
+                {!file ? (
+                  <div className="pdfDrop__empty">
+                    <div className="pdfIcon" aria-hidden="true">
+                      <UploadArrowIcon size={58} />
+                    </div>
+
+                    <div className="pdfDrop__txt">
+                      <div className="pdfDrop__big">إضافة ملف PDF</div>
+                      <div className="pdfDrop__small">اضغط هنا أو اسحب الملف إلى هذا المربع</div>
+                    </div>
+
+                    <div className="pdfDrop__btn">اختيار ملف</div>
+                  </div>
+                ) : (
+                  <div className="pdfDrop__picked">
+                    <div className="pdfPicked__icon" aria-hidden="true">
+                      <UploadArrowIcon size={52} />
+                    </div>
+
+                    <div className="pdfPicked__meta">
+                      <div className="pdfPicked__name">{fileName}</div>
+                      <div className="pdfPicked__hint">تم اختيار الملف ✅</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="pdfPicked__clear"
+                      onClick={() => setFile(null)}
+                      disabled={loading}
+                      title="حذف الملف"
+                    >
+                      حذف
+                    </button>
+                  </div>
+                )}
+              </label>
             </div>
-          </div>
 
-          <div className="grid2">
-            <div className="field">
-              <div className="label">الشعبة (من DB)</div>
-              <select
-                className="select"
-                value={divisionId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const d = divisions.find((x) => String(x.id) === String(id));
-                  setDivisionId(id);
-                  setDivisionName(d?.name || "");
-                }}
-                disabled={loading}
-              >
-                <option value="">— اختر الشعبة —</option>
-                {divisions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-              <div className="help">تقدر تختار الشعبة يدوياً، أو كتتعمر تلقائياً منين كتختار نوع القضية.</div>
-            </div>
-
-            <div className="field">
-              <div className="label">نوع القضية (بحث عام)</div>
-              <CaseTypeAutocompleteGlobal
-                divisions={divisions}
-                value={caseTypeCode}
-                onChange={(code) => {
-                  setCaseTypeCode(code);
-                  setCaseTypeName("");
-                }}
-                onPick={(it) => {
-                  const d = divisions.find((x) => String(x.id) === String(it?.division_id));
-                  setDivisionId(d ? String(d.id) : "");
-                  setDivisionName(d?.name || "");
-                  setCaseTypeCode(it?.code || "");
-                  setCaseTypeName(it?.name || "");
-                }}
-                disabled={loading}
-              />
-              <div className="help">كتب الاسم أو الرمز (مثال 2101) حتى إلا ما اخترتيش الشعبة.</div>
-
-              {/* ✅ رسائل عدم التطابق */}
-              {caseTypeMismatch && (
-                <div className="hint hint--bad" style={{ marginTop: 6 }}>
-                  {caseTypeMismatch}
+            {/* RIGHT: inputs */}
+            <div className="addDocInputs">
+              <div className="grid2">
+                <div className="field">
+                  <div className="label">الشعبة</div>
+                  <select
+                    className="select"
+                    value={divisionId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const d = divisions.find((x) => String(x.id) === String(id));
+                      setDivisionId(id);
+                      setDivisionName(d?.name || "");
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="">— اختر الشعبة —</option>
+                    {divisions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
-            </div>
-          </div>
 
-          <div className="grid2" style={{ marginTop: 12 }}>
-            <div className="field">
-              <div className="label">رقم الملف (n*/****/****)</div>
-              <input
-                className="input"
-                value={caseNumber}
-                onChange={(e) => setCaseNumber(e.target.value)}
-                placeholder="مثال: 10021/2101/2026"
-                disabled={loading}
-              />
-              <div className={`hint ${fileHint.ok === true ? "hint--ok" : fileHint.ok === false ? "hint--bad" : ""}`}>
-                {fileHint.text}
+                <div className="field">
+                  <div className="label">نوع القضية</div>
+                  <CaseTypeAutocompleteGlobal
+                    divisions={divisions}
+                    value={caseTypeCode}
+                    onChange={(code) => {
+                      setCaseTypeCode(code);
+                      setCaseTypeName("");
+                    }}
+                    onPick={(it) => {
+                      const d = divisions.find((x) => String(x.id) === String(it?.division_id));
+                      setDivisionId(d ? String(d.id) : "");
+                      setDivisionName(d?.name || "");
+                      setCaseTypeCode(it?.code || "");
+                      setCaseTypeName(it?.name || "");
+                    }}
+                    disabled={loading}
+                  />
+
+                  {caseTypeMismatch && (
+                    <div className="hint hint--bad" style={{ marginTop: 6 }}>
+                      {caseTypeMismatch}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* ✅ رسالة: الرمز اللي فالوسط ما موجودش فـ case_types */}
-              {caseCodeLookupMsg && (
-                <div className="hint hint--bad" style={{ marginTop: 6 }}>
-                  {caseCodeLookupMsg}
-                </div>
-              )}
-            </div>
+              <div className="grid2" style={{ marginTop: 12 }}>
+                <div className="field">
+                  <div className="label">رقم الملف</div>
+                  <input
+                    className="input"
+                    value={caseNumber}
+                    onChange={(e) => setCaseNumber(e.target.value)}
+                    placeholder="مثال: 10021/2101/2026"
+                    disabled={loading}
+                  />
+                  <div className={`hint ${fileHint.ok === true ? "hint--ok" : fileHint.ok === false ? "hint--bad" : ""}`}>
+                    {fileHint.text}
+                  </div>
 
-            <div className="field">
-              <div className="label">رقم الحكم (n*/****)</div>
-              <input
-                className="input"
-                value={judgementNumber}
-                onChange={(e) => setJudgementNumber(e.target.value)}
-                placeholder="مثال: 12/2026"
-                disabled={loading}
-              />
-              <div className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}>
-                {judgementHint.text}
+                  {caseCodeLookupMsg && (
+                    <div className="hint hint--bad" style={{ marginTop: 6 }}>
+                      {caseCodeLookupMsg}
+                    </div>
+                  )}
+                </div>
+
+                <div className="field">
+                  <div className="label">رقم الحكم</div>
+                  <input
+                    className="input"
+                    value={judgementNumber}
+                    onChange={(e) => setJudgementNumber(e.target.value)}
+                    placeholder="مثال: 12/2026"
+                    disabled={loading}
+                  />
+                  <div className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}>
+                    {judgementHint.text}
+                  </div>
+                </div>
+              </div>
+
+              <div className="field" style={{ marginTop: 12 }}>
+                <div className="label">اسم القاضي</div>
+                <AutocompleteRemote
+                  value={judgeName}
+                  onChange={(v) => setJudgeName(v)}
+                  fetchOptions={fetchJudgeNames}
+                  placeholder="اكتب وسيتم عرض القضاة…"
+                  disabled={loading}
+                />
               </div>
             </div>
-          </div>
-
-          <div className="field" style={{ marginTop: 12 }}>
-            <div className="label">اسم القاضي (من DB)</div>
-            <AutocompleteRemote
-              value={judgeName}
-              onChange={(v) => setJudgeName(v)}
-              fetchOptions={fetchJudgeNames}
-              placeholder="كتب وغيطلعوا القضاة…"
-              disabled={loading}
-            />
-            <div className="help">كيجيب القضاة من قاعدة البيانات (lookups/judges).</div>
           </div>
 
           <div className="rowActions" style={{ marginTop: 12 }}>
@@ -727,10 +733,6 @@ export default function AddDocument() {
             <button className="btn btnSecondary" type="button" disabled={loading} onClick={resetForm}>
               مسح
             </button>
-          </div>
-
-          <div className="help" style={{ marginTop: 10 }}>
-            ملاحظة: بعد الرفع، الوثيقة كتكون <strong>pending</strong> حتى يكمل استخراج النص.
           </div>
         </form>
       </div>

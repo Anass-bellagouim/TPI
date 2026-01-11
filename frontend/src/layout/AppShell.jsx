@@ -125,11 +125,19 @@ export default function AppShell() {
                   <>
                     <div className="menuTitle">الوثائق</div>
 
-                    <button className={`menuItem ${isActive("/search", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/search")}>
-                      بحث عن وثيقة
+                    <button
+                      className={`menuItem ${isActive("/search", { exact: true }) ? "active" : ""}`}
+                      type="button"
+                      onClick={() => go("/search")}
+                    >
+                      البحث عن وثيقة
                     </button>
 
-                    <button className={`menuItem ${isActive("/add", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/add")}>
+                    <button
+                      className={`menuItem ${isActive("/add", { exact: true }) ? "active" : ""}`}
+                      type="button"
+                      onClick={() => go("/add")}
+                    >
                       إضافة وثيقة
                     </button>
 
@@ -139,11 +147,19 @@ export default function AppShell() {
 
                         <div className="menuTitle">الموظفون</div>
 
-                        <button className={`menuItem ${isActive("/employees", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/employees")}>
-                          بحث عن موظف
+                        <button
+                          className={`menuItem ${isActive("/employees", { exact: true }) ? "active" : ""}`}
+                          type="button"
+                          onClick={() => go("/employees")}
+                        >
+                          البحث عن موظف
                         </button>
 
-                        <button className={`menuItem ${isActive("/employees/add", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/employees/add")}>
+                        <button
+                          className={`menuItem ${isActive("/employees/add", { exact: true }) ? "active" : ""}`}
+                          type="button"
+                          onClick={() => go("/employees/add")}
+                        >
                           إضافة موظف
                         </button>
 
@@ -151,15 +167,27 @@ export default function AppShell() {
 
                         <div className="menuTitle">لوحة الإدارة</div>
 
-                        <button className={`menuItem ${isActive("/divisions") ? "active" : ""}`} type="button" onClick={() => go("/divisions")}>
+                        <button
+                          className={`menuItem ${isActive("/divisions") ? "active" : ""}`}
+                          type="button"
+                          onClick={() => go("/divisions")}
+                        >
                           إدارة الشعب
                         </button>
 
-                        <button className={`menuItem ${isActive("/case-types") ? "active" : ""}`} type="button" onClick={() => go("/case-types")}>
+                        <button
+                          className={`menuItem ${isActive("/case-types") ? "active" : ""}`}
+                          type="button"
+                          onClick={() => go("/case-types")}
+                        >
                           إدارة القضايا
                         </button>
 
-                        <button className={`menuItem ${isActive("/judges") ? "active" : ""}`} type="button" onClick={() => go("/judges")}>
+                        <button
+                          className={`menuItem ${isActive("/judges") ? "active" : ""}`}
+                          type="button"
+                          onClick={() => go("/judges")}
+                        >
                           إدارة القضاة
                         </button>
                       </>
@@ -169,7 +197,11 @@ export default function AppShell() {
 
                     <div className="menuTitle">الحساب</div>
 
-                    <button className={`menuItem ${isActive("/change-password", { exact: true }) ? "active" : ""}`} type="button" onClick={() => go("/change-password")}>
+                    <button
+                      className={`menuItem ${isActive("/change-password", { exact: true }) ? "active" : ""}`}
+                      type="button"
+                      onClick={() => go("/change-password")}
+                    >
                       تغيير كلمة المرور
                     </button>
 

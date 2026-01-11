@@ -35,7 +35,6 @@ export default function Login() {
   return (
     <div className="authWrap">
       <div className="authLayout">
-        {/* ✅ Left / Top image */}
         <div className="authVisual">
           <img src="img/Logo.png" alt="محكمة" />
           <div className="authVisualOverlay">
@@ -44,7 +43,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* ✅ Login form */}
         <div className="card authCard authCard--login">
           <h2>تسجيل الدخول</h2>
 
@@ -52,7 +50,7 @@ export default function Login() {
 
           <form onSubmit={submit} className="form">
             <div className="field">
-              <div className="label">اسم المستخدم أو البريد</div>
+              <div className="label">اسم المستخدم أو البريد الإلكتروني</div>
               <input
                 className="input"
                 value={identifier}

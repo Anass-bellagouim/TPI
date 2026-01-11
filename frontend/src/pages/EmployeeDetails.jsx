@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 export default function EmployeeDetails() {
   const { id } = useParams();
@@ -21,6 +22,7 @@ export default function EmployeeDetails() {
     last_name: "",
     username: "",
     role: "user",
+    email: "",
   });
 
   const busy = loading || loadingToggle || loadingReset || loadingDelete;
@@ -32,9 +34,20 @@ export default function EmployeeDetails() {
     return employee?.full_name || built || employee?.username || "";
   }, [employee]);
 
+  const isAdmin = String(form.role || "").toLowerCase() === "admin";
+
+  // ✅ Confirm modal state (toggle/reset/delete)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // "toggle" | "reset" | "delete"
+
   function clearMsgs() {
     setError("");
     setInfo("");
+  }
+
+  function closeConfirm() {
+    setConfirmOpen(false);
+    setConfirmAction(null);
   }
 
   async function fetchEmployee() {
@@ -42,7 +55,6 @@ export default function EmployeeDetails() {
     try {
       setLoading(true);
 
-      // ✅ مهم: endpoint الصحيح
       const res = await api.get(`/admin/employees/${id}`);
       const u = res.data?.data || res.data;
 
@@ -52,6 +64,7 @@ export default function EmployeeDetails() {
         last_name: u?.last_name || "",
         username: u?.username || "",
         role: u?.role || "user",
+        email: u?.email || "",
       });
     } catch (e) {
       const status = e?.response?.status;
@@ -59,11 +72,25 @@ export default function EmployeeDetails() {
         setEmployee(null);
         setError("الموظف غير موجود (404).");
       } else {
-        setError(e?.response?.data?.message || "وقع خطأ أثناء جلب بيانات الموظف.");
+        setError(e?.response?.data?.message || "حدث خطأ أثناء جلب بيانات الموظف.");
       }
     } finally {
       setLoading(false);
     }
+  }
+
+  // ✅ إذا تبدّل الدور إلى user، نحيد البريد من state باش ما يبقاش يتصيفط
+  useEffect(() => {
+    if (!isAdmin && form.email) {
+      setForm((p) => ({ ...p, email: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  function validateEmail(v) {
+    const s = String(v || "").trim();
+    if (!s) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
   }
 
   async function onUpdate(e) {
@@ -78,8 +105,13 @@ export default function EmployeeDetails() {
         last_name: form.last_name?.trim() || "",
         username: form.username?.trim() || "",
         role: form.role || "user",
-        // ❌ ما كنصيفطوش email
+        ...(isAdmin ? { email: form.email?.trim() || "" } : {}),
       };
+
+      if (isAdmin && payload.email && !validateEmail(payload.email)) {
+        setError("البريد الإلكتروني غير صالح.");
+        return;
+      }
 
       const res = await api.patch(`/admin/employees/${id}`, payload);
       const updated = res.data?.data || res.data;
@@ -88,33 +120,46 @@ export default function EmployeeDetails() {
       setInfo("تم تحديث معلومات الموظف بنجاح.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
-      setError(e?.response?.data?.message || "وقع خطأ أثناء تحديث معلومات الموظف.");
+      setError(e?.response?.data?.message || "حدث خطأ أثناء تحديث معلومات الموظف.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function toggleActive() {
+  // ✅ Open confirm for actions
+  function askToggle() {
+    clearMsgs();
+    if (!employee) return;
+    setConfirmAction("toggle");
+    setConfirmOpen(true);
+  }
+
+  function askReset() {
+    clearMsgs();
+    if (!employee) return;
+    setConfirmAction("reset");
+    setConfirmOpen(true);
+  }
+
+  function askDelete() {
+    clearMsgs();
+    setConfirmAction("delete");
+    setConfirmOpen(true);
+  }
+
+  async function doToggle() {
     clearMsgs();
     if (!employee) return;
 
-    const ok = window.confirm(
-      employee.is_active
-        ? "واش متأكد بغيتي توقف هاد الحساب؟ (غادي مايبقاش يقدر يدخول)"
-        : "واش متأكد بغيتي تفعّل هاد الحساب؟"
-    );
-    if (!ok) return;
-
     try {
       setLoadingToggle(true);
-
-      // ✅ endpoint الصحيح
       const res = await api.patch(`/admin/employees/${id}/toggle-active`);
       const updated = res.data?.data || res.data;
 
       setEmployee(updated);
-      setInfo(res.data?.message || "تم تحديث حالة الحساب (وتم سحب التوكنز).");
+      setInfo(res.data?.message || "تم تحديث حالة الحساب (وتم سحب الرموز).");
       window.scrollTo({ top: 0, behavior: "smooth" });
+      closeConfirm();
     } catch (e) {
       setError(e?.response?.data?.message || "فشل تغيير حالة الحساب.");
     } finally {
@@ -122,50 +167,100 @@ export default function EmployeeDetails() {
     }
   }
 
-  async function resetPasswordDefault() {
+  async function doResetPasswordDefault() {
     clearMsgs();
     if (!employee) return;
 
-    const ok = window.confirm(
-      'واش متأكد بغيتي ترجع كلمة المرور الافتراضية "123456"؟ (غادي يتحيدو جميع sessions ديال الموظف)'
-    );
-    if (!ok) return;
-
     try {
       setLoadingReset(true);
-
-      // ✅ endpoint الصحيح
       const res = await api.patch(`/admin/employees/${id}/password`);
-      setInfo(
-        res.data?.message ||
-          'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب التوكنز القديمة بنجاح.'
-      );
+      setInfo(res.data?.message || 'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب الرموز القديمة بنجاح.');
       window.scrollTo({ top: 0, behavior: "smooth" });
+      closeConfirm();
     } catch (e) {
-      setError(e?.response?.data?.message || "وقع خطأ أثناء إعادة تعيين كلمة المرور.");
+      setError(e?.response?.data?.message || "حدث خطأ أثناء إعادة تعيين كلمة المرور.");
     } finally {
       setLoadingReset(false);
     }
   }
 
-  async function onDelete() {
+  async function doDelete() {
     clearMsgs();
-
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد الموظف نهائياً؟");
-    if (!ok) return;
-
     try {
       setLoadingDelete(true);
-
-      // ✅ endpoint الصحيح
       await api.delete(`/admin/employees/${id}`);
       navigate("/employees", { replace: true });
     } catch (e) {
-      setError(e?.response?.data?.message || "وقع خطأ أثناء حذف الموظف.");
+      setError(e?.response?.data?.message || "حدث خطأ أثناء حذف الموظف.");
     } finally {
       setLoadingDelete(false);
+      closeConfirm();
     }
   }
+
+  // ✅ Confirm Dialog dynamic config
+  const confirmConfig = useMemo(() => {
+    const isBusy = loadingToggle || loadingReset || loadingDelete;
+
+    if (confirmAction === "toggle") {
+      const isActive = !!employee?.is_active;
+
+      return {
+        open: confirmOpen,
+        danger: isActive, // توقيف = danger، تفعيل = عادي
+        title: isActive ? "توقيف الحساب" : "تفعيل الحساب",
+        message: isActive
+          ? "هل أنت متأكد أنك تريد توقيف هذا الحساب؟ لن يتمكن الموظف من تسجيل الدخول وسيتم سحب الجلسات/الرموز."
+          : "هل أنت متأكد أنك تريد تفعيل هذا الحساب؟ سيتمكن الموظف من تسجيل الدخول من جديد.",
+        confirmText: isActive ? "نعم، أوقف" : "نعم، فعّل",
+        cancelText: "إلغاء",
+        loading: loadingToggle,
+        onConfirm: doToggle,
+        onCancel: isBusy ? undefined : closeConfirm,
+      };
+    }
+
+    if (confirmAction === "reset") {
+      return {
+        open: confirmOpen,
+        danger: true,
+        title: 'إعادة تعيين كلمة المرور',
+        message:
+          'هل أنت متأكد أنك تريد إعادة تعيين كلمة المرور إلى "123456"؟ سيتم إنهاء جميع الجلسات وسحب الرموز.',
+        confirmText: 'نعم، أعد التعيين',
+        cancelText: "إلغاء",
+        loading: loadingReset,
+        onConfirm: doResetPasswordDefault,
+        onCancel: isBusy ? undefined : closeConfirm,
+      };
+    }
+
+    if (confirmAction === "delete") {
+      return {
+        open: confirmOpen,
+        danger: true,
+        title: "حذف الموظف نهائيًا",
+        message: "هل أنت متأكد أنك تريد حذف هذا الموظف؟ هذه العملية نهائية ولا يمكن التراجع عنها.",
+        confirmText: "نعم، احذف",
+        cancelText: "إلغاء",
+        loading: loadingDelete,
+        onConfirm: doDelete,
+        onCancel: isBusy ? undefined : closeConfirm,
+      };
+    }
+
+    return {
+      open: false,
+      danger: true,
+      title: "",
+      message: "",
+      confirmText: "تأكيد",
+      cancelText: "إلغاء",
+      loading: false,
+      onConfirm: () => {},
+      onCancel: closeConfirm,
+    };
+  }, [confirmAction, confirmOpen, employee, loadingToggle, loadingReset, loadingDelete]);
 
   useEffect(() => {
     fetchEmployee();
@@ -184,7 +279,7 @@ export default function EmployeeDetails() {
 
         <div className="rowActions">
           <Link className="btn btnSecondary" to="/employees">
-            رجوع للائحة
+            رجوع إلى اللائحة
           </Link>
 
           <button
@@ -215,10 +310,10 @@ export default function EmployeeDetails() {
         <div className="card">
           <div style={{ fontWeight: 700, marginBottom: 8 }}>الموظف غير موجود</div>
           <div className="help" style={{ marginBottom: 12 }}>
-            ممكن يكون تحذف أو الرابط غير صحيح.
+            قد يكون قد تم حذفه أو أن الرابط غير صحيح.
           </div>
           <Link className="btn btnPrimary" to="/employees">
-            رجوع للائحة الموظفين
+            رجوع إلى لائحة الموظفين
           </Link>
         </div>
       )}
@@ -231,16 +326,16 @@ export default function EmployeeDetails() {
 
               {employee.is_active ? (
                 <div>
-                  <span style={{ fontWeight: 600 }}>✅ مفعل</span>
+                  <span style={{ fontWeight: 600 }}>✅ مفعّل</span>
                   <div className="help" style={{ marginTop: 6 }}>
-                    الموظف يقدر يدير login عادي.
+                    يمكن للموظف تسجيل الدخول بشكل طبيعي.
                   </div>
                 </div>
               ) : (
                 <div>
                   <span style={{ fontWeight: 600 }}>⛔ موقوف</span>
                   <div className="help" style={{ marginTop: 6 }}>
-                    الموظف ما يقدرش يدير login حتى تفعّلو.
+                    لا يمكن للموظف تسجيل الدخول حتى يتم تفعيل الحساب.
                   </div>
                 </div>
               )}
@@ -250,9 +345,9 @@ export default function EmployeeDetails() {
               <button
                 className={`btn ${employee.is_active ? "btnDanger" : "btnPrimary"}`}
                 type="button"
-                onClick={toggleActive}
+                onClick={askToggle}
                 disabled={busy}
-                title="توقيف/تفعيل الحساب (مع سحب التوكنز)"
+                title="إيقاف/تفعيل الحساب (مع سحب الرموز)"
               >
                 {loadingToggle ? "..." : employee.is_active ? "إيقاف الحساب" : "تفعيل الحساب"}
               </button>
@@ -288,7 +383,7 @@ export default function EmployeeDetails() {
               </div>
 
               <div className="field">
-                <div className="label">Username</div>
+                <div className="label">اسم المستخدم</div>
                 <input
                   className="input"
                   value={form.username}
@@ -298,7 +393,7 @@ export default function EmployeeDetails() {
               </div>
 
               <div className="field">
-                <div className="label">Role</div>
+                <div className="label">الدور</div>
                 <select
                   className="select"
                   value={form.role}
@@ -308,10 +403,22 @@ export default function EmployeeDetails() {
                   <option value="admin">admin</option>
                   <option value="user">user</option>
                 </select>
-                <div className="help" style={{ marginTop: 6 }}>
-                  ملاحظة: email محيد نهائياً من الواجهة.
-                </div>
               </div>
+
+              {isAdmin && (
+                <div className="field">
+                  <div className="label">البريد الإلكتروني</div>
+                  <input
+                    className="input"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    disabled={busy}
+                    autoComplete="off"
+                    placeholder="admin@example.com"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="rowActions" style={{ marginTop: 12 }}>
@@ -322,17 +429,17 @@ export default function EmployeeDetails() {
               <button
                 className="btn btnSecondary"
                 type="button"
-                onClick={resetPasswordDefault}
+                onClick={askReset}
                 disabled={busy}
-                title='Reset password to "123456" + revoke tokens'
+                title='Reset password + revoke tokens'
               >
-                {loadingReset ? "..." : "Reset Password (123456)"}
+                {loadingReset ? "..." : 'Reset Password'}
               </button>
 
               <button
                 className="btn btnDanger"
                 type="button"
-                onClick={onDelete}
+                onClick={askDelete}
                 disabled={busy}
                 style={{ marginInlineStart: "auto" }}
                 title="حذف الموظف"
@@ -340,13 +447,22 @@ export default function EmployeeDetails() {
                 {loadingDelete ? "..." : "حذف"}
               </button>
             </div>
-
-            <div className="help" style={{ marginTop: 10 }}>
-              ملاحظة: Reset Password كيرجع كلمة المرور لـ <strong>123456</strong> وكيحيد جميع التوكنز.
-            </div>
           </form>
         </div>
       )}
+
+      {/* ✅ One Pro ConfirmDialog for all actions */}
+      <ConfirmDialog
+        open={confirmConfig.open}
+        danger={confirmConfig.danger}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        loading={confirmConfig.loading}
+        onCancel={confirmConfig.onCancel || closeConfirm}
+        onConfirm={confirmConfig.onConfirm}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useContext } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api, { API_BASE_URL } from "../api.js";
 import { AuthContext } from "../auth/AuthContext.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 function StatusBadge({ status }) {
   const s = (status || "").toLowerCase();
@@ -48,14 +49,13 @@ export default function DocumentDetails() {
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  // ✅ Fix: تجنب /api/api
+  // ✅ confirm modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const downloadApiUrl = useMemo(() => {
-    // إذا API_BASE_URL فيه /api already، ما تزيدش /api
-    // أفضل افتراض: API_BASE_URL = http://host:8000 (بدون /api)
     return `${API_BASE_URL}/api/documents/${id}/download`;
   }, [id]);
 
-  // ✅ عرض النوع: الاسم + الرمز
   const caseTypeText = useMemo(() => {
     const name = (doc?.type || "").trim();
     const code = (doc?.keyword || "").trim();
@@ -95,13 +95,11 @@ export default function DocumentDetails() {
     try {
       const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
 
-      // ✅ revoke القديم قبل ما نبدّل
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(res.data);
       });
     } catch {
-      // ✅ إذا فشل، revoke القديم
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return "";
@@ -111,20 +109,17 @@ export default function DocumentDetails() {
 
   useEffect(() => {
     fetchDoc();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
     fetchPdfBlob();
 
-    // ✅ cleanup نهائي
     return () => {
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return "";
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function onSave() {
@@ -134,7 +129,7 @@ export default function DocumentDetails() {
     try {
       setSaving(true);
       const payload = {
-        type: form.type?.trim() || "", // type NOT NULL
+        type: form.type?.trim() || "",
         judgement_number: form.judgement_number?.trim() || "",
         case_number: form.case_number?.trim() || "",
         judge_name: form.judge_name?.trim() || "",
@@ -149,30 +144,34 @@ export default function DocumentDetails() {
       setEditing(false);
       setMsg("✅ تم تعديل الوثيقة بنجاح.");
     } catch (err) {
-      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء التعديل.";
+      const m = err?.response?.data?.message || err?.message || "حدث خطأ أثناء التعديل.";
       setError(m);
     } finally {
       setSaving(false);
     }
   }
 
-  async function onDelete() {
+  async function doDelete() {
     setMsg(null);
     setError(null);
-
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد الوثيقة؟ هاد العملية نهائية.");
-    if (!ok) return;
 
     try {
       setDeleting(true);
       await api.delete(`/documents/${id}`);
       navigate("/search", { replace: true });
     } catch (err) {
-      const m = err?.response?.data?.message || err?.message || "وقع خطأ أثناء الحذف.";
+      const m = err?.response?.data?.message || err?.message || "حدث خطأ أثناء الحذف.";
       setError(m);
     } finally {
       setDeleting(false);
+      setConfirmOpen(false);
     }
+  }
+
+  function onDeleteClick() {
+    setMsg(null);
+    setError(null);
+    setConfirmOpen(true);
   }
 
   async function onDownload() {
@@ -181,8 +180,7 @@ export default function DocumentDetails() {
       const res = await api.get(`/documents/${id}/download`, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
 
-      const filename =
-        (doc?.original_filename || `document_${id}.pdf`).toString();
+      const filename = (doc?.original_filename || `document_${id}.pdf`).toString();
 
       const a = document.createElement("a");
       a.href = url;
@@ -201,8 +199,7 @@ export default function DocumentDetails() {
     <div>
       <div className="pageHeader">
         <div>
-          <h2>تفاصيل الوثيقة #{id}</h2>
-          <p>معاينة PDF + تحميل + تعديل/حذف.</p>
+          <h2>تفاصيل الوثيقة</h2>
         </div>
 
         <div className="rowActions">
@@ -225,7 +222,7 @@ export default function DocumentDetails() {
               </button>
 
               {user?.role === "admin" && (
-                <button className="btn btnDanger" onClick={onDelete} disabled={!doc || deleting}>
+                <button className="btn btnDanger" onClick={onDeleteClick} disabled={!doc || deleting}>
                   {deleting ? "جاري الحذف..." : "حذف"}
                 </button>
               )}
@@ -328,20 +325,12 @@ export default function DocumentDetails() {
             <div className="rowActions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
               <div>
                 <strong>معاينة PDF</strong>
-                <div className="help">إذا ما بانش PDF هنا، استعمل زر التحميل.</div>
-              </div>
-              <div className="help">
-                API: <code>{downloadApiUrl}</code>
               </div>
             </div>
 
             {pdfBlobUrl ? (
               <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "#fff" }}>
-                <iframe
-                  title={`PDF_${id}`}
-                  src={pdfBlobUrl}
-                  style={{ width: "100%", height: "75vh", border: "0", display: "block" }}
-                />
+                <iframe title={`PDF_${id}`} src={pdfBlobUrl} style={{ width: "100%", height: "75vh", border: "0", display: "block" }} />
               </div>
             ) : (
               <div className="alert alertInfo">تعذر عرض PDF. استعمل زر التحميل.</div>
@@ -349,6 +338,18 @@ export default function DocumentDetails() {
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        danger
+        title="حذف الوثيقة نهائيًا"
+        message="هل أنت متأكد أنك تريد حذف هذه الوثيقة؟ هذه العملية نهائية ولا يمكن التراجع عنها."
+        confirmText="نعم، احذف"
+        cancelText="إلغاء"
+        loading={deleting}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

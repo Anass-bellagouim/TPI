@@ -1,6 +1,8 @@
+// src/pages/DivisionsAdmin.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 function norm(s) {
   return (s || "").toString().trim().toLowerCase();
@@ -23,13 +25,10 @@ export default function DivisionsAdmin() {
   const [form, setForm] = useState({ name: "", is_active: true });
 
   const [editingId, setEditingId] = useState(null);
-  // ✅ Edit state: name فقط
   const [edit, setEdit] = useState({ name: "" });
 
-  // ✅ نخزنو is_active ديال row اللي كيتعدل (باش نرسل آخر قيمة)
   const [editingIsActive, setEditingIsActive] = useState(true);
 
-  // ✅ perPage + page (client-side)
   const [perPage, setPerPage] = useState(readPerPage());
   const [page, setPage] = useState(1);
 
@@ -37,6 +36,10 @@ export default function DivisionsAdmin() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+
+  // ✅ confirm modal (delete)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmRow, setConfirmRow] = useState(null);
 
   async function fetchDivisions() {
     setError("");
@@ -47,12 +50,12 @@ export default function DivisionsAdmin() {
       const data = res.data?.data || res.data || [];
       const arr = Array.isArray(data) ? data : [];
       setRows(arr);
-      if ((arr?.length || 0) === 0) setInfo("ما كايناش شعب دابا. زيد أول شعبة من الفورم.");
+      if ((arr?.length || 0) === 0) setInfo("لا توجد شعب حاليًا. أضف أول شعبة من النموذج.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء جلب الشعب.";
+        "حدث خطأ أثناء جلب الشعب.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -63,13 +66,11 @@ export default function DivisionsAdmin() {
     fetchDivisions();
   }, []);
 
-  // ✅ حفظ perPage
   useEffect(() => {
     localStorage.setItem(PER_PAGE_KEY, String(perPage));
     setPage(1);
   }, [perPage]);
 
-  // ✅ reset page عند تبديل البحث
   useEffect(() => {
     setPage(1);
   }, [q]);
@@ -80,14 +81,12 @@ export default function DivisionsAdmin() {
     return rows.filter((r) => norm(r.name).includes(qq));
   }, [rows, q]);
 
-  // ✅ Client-side pagination
   const total = filtered.length;
   const lastPage = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(Math.max(1, page), lastPage);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage]);
 
   const pagedRows = useMemo(() => {
@@ -104,7 +103,7 @@ export default function DivisionsAdmin() {
     setInfo("");
 
     const name = form.name.trim();
-    if (!name) return setError("اسم الشعبة ضروري.");
+    if (!name) return setError("اسم الشعبة مطلوب.");
 
     try {
       setSaving(true);
@@ -121,7 +120,7 @@ export default function DivisionsAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء إضافة الشعبة.";
+        "حدث خطأ أثناء إضافة الشعبة.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -145,9 +144,8 @@ export default function DivisionsAdmin() {
     setInfo("");
 
     const name = edit.name.trim();
-    if (!name) return setError("اسم الشعبة ضروري.");
+    if (!name) return setError("اسم الشعبة مطلوب.");
 
-    // ✅ خذ آخر حالة من rows باش ما نرجعوش التبديل للقديم
     const currentRow = rows.find((r) => r.id === id);
     const latestIsActive = currentRow ? !!currentRow.is_active : !!editingIsActive;
 
@@ -166,23 +164,31 @@ export default function DivisionsAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التحديث.";
+        "حدث خطأ أثناء التحديث.";
       setError(msg);
     } finally {
       setSaving(false);
     }
   }
 
-  async function removeDivision(id) {
+  // ✅ بدل window.confirm: كنفتح modal
+  function askRemoveDivision(row) {
+    setError("");
+    setInfo("");
+    setConfirmRow(row);
+    setConfirmOpen(true);
+  }
+
+  // ✅ نفس منطق الحذف الحقيقي
+  async function doRemoveDivision() {
+    if (!confirmRow) return;
+
     setError("");
     setInfo("");
 
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد الشعبة؟");
-    if (!ok) return;
-
     try {
       setSaving(true);
-      const res = await api.delete(`/admin/divisions/${id}`);
+      const res = await api.delete(`/admin/divisions/${confirmRow.id}`);
       setInfo(res.data?.message || "تم حذف الشعبة.");
       await fetchDivisions();
       setPage(1);
@@ -190,10 +196,12 @@ export default function DivisionsAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء الحذف.";
+        "حدث خطأ أثناء الحذف.";
       setError(msg);
     } finally {
       setSaving(false);
+      setConfirmOpen(false);
+      setConfirmRow(null);
     }
   }
 
@@ -203,10 +211,8 @@ export default function DivisionsAdmin() {
 
     const nextActive = !row.is_active;
 
-    // ✅ Optimistic UI: بدّل فـ rows مباشرة
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: nextActive } : r)));
 
-    // ✅ إذا كنت كتعدل نفس row، حدّث editingIsActive باش يبقى synchronized
     if (editingId === row.id) setEditingIsActive(nextActive);
 
     try {
@@ -217,14 +223,13 @@ export default function DivisionsAdmin() {
       });
       setInfo(res.data?.message || "تم التحديث.");
     } catch (e) {
-      // ❌ rollback إلا فشل
       setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: row.is_active } : r)));
       if (editingId === row.id) setEditingIsActive(!!row.is_active);
 
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التفعيل/التعطيل.";
+        "حدث خطأ أثناء التفعيل/التعطيل.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -236,7 +241,6 @@ export default function DivisionsAdmin() {
       <div className="pageHeader">
         <div>
           <h2>إدارة الشعب</h2>
-          <p>إضافة / تعديل / تعطيل الشعب + الدخول لإدارة القضايا ديال كل شعبة. (Admin فقط)</p>
         </div>
         <div className="headerActions">
           <button className="btn btnSecondary" type="button" onClick={fetchDivisions} disabled={loading || saving}>
@@ -256,7 +260,6 @@ export default function DivisionsAdmin() {
         </div>
       )}
 
-      {/* ✅ Add form (TOP) */}
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 className="cardTitle">إضافة شعبة جديدة</h3>
         <form onSubmit={onAdd}>
@@ -269,7 +272,6 @@ export default function DivisionsAdmin() {
               placeholder="مثال: شعبة الجنح العادية"
               disabled={saving}
             />
-            <div className="help">خاص الاسم يكون unique.</div>
           </div>
 
           <div className="field" style={{ marginTop: 10 }}>
@@ -280,7 +282,7 @@ export default function DivisionsAdmin() {
                 onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
                 disabled={saving}
               />
-              <span>مفعّلة (Active)</span>
+              <span>مفعّلة</span>
             </label>
           </div>
 
@@ -295,7 +297,6 @@ export default function DivisionsAdmin() {
         </form>
       </div>
 
-      {/* ✅ List (BOTTOM) */}
       <div className="card">
         <div className="listTop" style={{ alignItems: "center" }}>
           <div>
@@ -308,14 +309,8 @@ export default function DivisionsAdmin() {
           <div className="searchBox" style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input className="input input--sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." />
 
-            {/* ✅ perPage فوق الجدول */}
             <div className="field" style={{ minWidth: 40 }}>
-              <select
-                className="select select--sm"
-                value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
-                disabled={loading || saving}
-              >
+              <select className="select select--sm" value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} disabled={loading || saving}>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -363,21 +358,14 @@ export default function DivisionsAdmin() {
 
                       <td>
                         {isEditing ? (
-                          <input
-                            className="input input--sm"
-                            value={edit.name}
-                            onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
-                            disabled={saving}
-                          />
+                          <input className="input input--sm" value={edit.name} onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))} disabled={saving} />
                         ) : (
                           <>
                             <div className="nameCell">{r.name}</div>
-                            <div className="help">sort_order: {r.sort_order ?? 0}</div>
                           </>
                         )}
                       </td>
 
-                      {/* ✅ Status toggle */}
                       <td>
                         <button
                           type="button"
@@ -385,12 +373,7 @@ export default function DivisionsAdmin() {
                           onClick={() => quickToggle(r)}
                           disabled={saving}
                           title={r.is_active ? "اضغط لتعطيل الشعبة" : "اضغط لتفعيل الشعبة"}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: saving ? "not-allowed" : "pointer",
-                            padding: 0,
-                          }}
+                          style={{ background: "transparent", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: 0 }}
                         >
                           {r.is_active ? "Active" : "Inactive"}
                         </button>
@@ -413,16 +396,11 @@ export default function DivisionsAdmin() {
                                 تعديل
                               </button>
 
-                              <button
-                                className="btn btnSecondary btn--sm"
-                                type="button"
-                                disabled={saving}
-                                onClick={() => nav(`/case-types?division_id=${r.id}`)}
-                              >
+                              <button className="btn btnSecondary btn--sm" type="button" disabled={saving} onClick={() => nav(`/case-types?division_id=${r.id}`)}>
                                 إدارة القضايا
                               </button>
 
-                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => removeDivision(r.id)}>
+                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => askRemoveDivision(r)}>
                                 حذف
                               </button>
                             </>
@@ -436,12 +414,7 @@ export default function DivisionsAdmin() {
           </table>
         </div>
 
-        {/* ✅ pager local */}
         <div className="pager" style={{ marginTop: 12 }}>
-          <div className="help">
-            عرض {pagedRows.length} من {total} — per page: <b>{perPage}</b>
-          </div>
-
           <div className="rowActions">
             <button className="btn btnSecondary" type="button" disabled={!canPrev || loading || saving} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               السابق
@@ -452,11 +425,22 @@ export default function DivisionsAdmin() {
             </button>
           </div>
         </div>
-
-        <div className="help" style={{ marginTop: 10 }}>
-          ملاحظة: تقدر تبدّل الحالة Active/Inactive حتى وانت فـ تعديل. التعديل كيبقى غير فالاسم.
-        </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        danger
+        title="حذف الشعبة نهائيًا"
+        message={`هل أنت متأكد أنك تريد حذف الشعبة: "${confirmRow?.name || ""}"؟ هذه العملية نهائية.`}
+        confirmText="نعم، احذف"
+        cancelText="إلغاء"
+        loading={saving}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setConfirmRow(null);
+        }}
+        onConfirm={doRemoveDivision}
+      />
     </div>
   );
 }

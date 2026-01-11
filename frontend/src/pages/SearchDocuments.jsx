@@ -133,7 +133,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى اقتراح.</div>
+            <div className="ac__empty">لا توجد أي اقتراحات.</div>
           ) : (
             filtered.map((o, idx) => (
               <button
@@ -159,7 +159,6 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
   );
 }
 
-
 function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -171,6 +170,7 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
   useEffect(() => {
     if (!value) setQ("");
     else if (!q) setQ(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   useEffect(() => {
@@ -227,7 +227,7 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
         <input
           className="ac__input"
           value={q}
-          placeholder={divisionId ? "اكتب نوع القضية داخل هاد الشعبة..." : "اكتب نوع القضية (بحث عام)..."}
+          placeholder={divisionId ? "أدخل نوع القضية ضمن هذه الشعبة..." : "أدخل نوع القضية (بحث عام)..."}
           disabled={disabled}
           onFocus={() => setOpen(true)}
           onChange={(e) => {
@@ -276,7 +276,7 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
           {loading ? (
             <div className="ac__empty">جاري التحميل...</div>
           ) : filtered.length === 0 ? (
-            <div className="ac__empty">ما كاين حتى نوع مطابق.</div>
+            <div className="ac__empty">لا يوجد أي نوع مطابق.</div>
           ) : (
             filtered.map((it, idx) => (
               <button
@@ -290,8 +290,12 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
                 }}
               >
                 <div className="acRow" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <span className="acName" style={{ fontWeight: 700 }}>{it.name}</span>
-                  <span className="acCode" style={{ opacity: 0.85 }}>{it.code}</span>
+                  <span className="acName" style={{ fontWeight: 700 }}>
+                    {it.name}
+                  </span>
+                  <span className="acCode" style={{ opacity: 0.85 }}>
+                    {it.code}
+                  </span>
                 </div>
 
                 {!!it?.division_id && (
@@ -310,6 +314,9 @@ function CaseTypeAutocompleteRemote({ divisions, divisionId, value, onChange, on
 
 export default function SearchDocuments() {
   const [divisions, setDivisions] = useState([]);
+
+  // ✅ mode: "all" or "search"
+  const [mode, setMode] = useState("all");
 
   const [filters, setFilters] = useState({
     division_id: "",
@@ -381,7 +388,7 @@ export default function SearchDocuments() {
 
     const name = caseTypesMap[parts.caseCode];
     if (name) return { ok: true, text: `✅ نوع القضية: ${name} — (${parts.caseCode})` };
-    return { ok: true, text: `✅ الرمز المستخرج: ${parts.caseCode} (قد لا يكون مسجل فهذه الشعبة)` };
+    return { ok: true, text: `✅ الرمز المستخرج: ${parts.caseCode} (قد لا يكون مسجلًا في هذه الشعبة)` };
   }, [filters.file_number, caseTypesMap]);
 
   const judgementHint = useMemo(() => {
@@ -391,18 +398,16 @@ export default function SearchDocuments() {
     return { ok: true, text: "✅ الصيغة صحيحة." };
   }, [filters.judgement_number]);
 
-  async function fetchDocs(url = "/documents/search", params = null) {
+  async function fetchDocs(url, params = undefined) {
     setError("");
     setInfo("");
 
     try {
       setLoading(true);
-
-      const res = params ? await api.get(url, { params }) : await api.get(url);
-
+      const res = params !== undefined ? await api.get(url, { params }) : await api.get(url);
       setPageData(res.data);
 
-      if ((res.data?.data || []).length === 0) setInfo("ما كاين حتى وثيقة مطابقة لهاد البحث.");
+      if ((res.data?.data || []).length === 0) setInfo("لا توجد أي وثيقة مطابقة لهذا البحث.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -414,8 +419,8 @@ export default function SearchDocuments() {
     }
   }
 
-  function buildParams() {
-    const params = { per_page: perPage };
+  function buildSearchParams({ page = 1 } = {}) {
+    const params = { per_page: perPage, page };
 
     if (filters.division_name) params.division = filters.division_name;
     if (filters.case_type_code) params.keyword = filters.case_type_code;
@@ -424,8 +429,6 @@ export default function SearchDocuments() {
     if (filters.file_number?.trim()) params.case_number = filters.file_number.trim();
     if (filters.judgement_number?.trim()) params.judgement_number = filters.judgement_number.trim();
     if (filters.q?.trim()) params.q = filters.q.trim();
-
-    params.page = 1;
 
     return params;
   }
@@ -436,17 +439,18 @@ export default function SearchDocuments() {
 
     const fn = filters.file_number.trim();
     if (fn && !extractCaseCodeFromFileNumber(fn)) {
-      setError("رقم الملف غير صحيح. خاصو يكون بحال: 10021/2101/2026");
+      setError("رقم الملف غير صحيح. يجب أن يكون مثل: 10021/2101/2026");
       return;
     }
 
     const jn = filters.judgement_number.trim();
     if (jn && !extractJudgementParts(jn)) {
-      setError("رقم الحكم غير صحيح. خاصو يكون بحال: 12/2026");
+      setError("رقم الحكم غير صحيح. يجب أن يكون مثل: 12/2026");
       return;
     }
 
-    fetchDocs("/documents/search", buildParams());
+    setMode("search");
+    fetchDocs("/documents/search", buildSearchParams({ page: 1 }));
   }
 
   async function handleDownload(d) {
@@ -471,20 +475,29 @@ export default function SearchDocuments() {
 
   function formatCaseType(doc) {
     const code = (doc?.keyword || "").trim();
-    const name = (doc?.type || "").trim() || (code ? (caseTypesMap[code] || "") : "");
+    const name = (doc?.type || "").trim() || (code ? caseTypesMap[code] || "" : "");
     if (name && code) return `${name} (${code})`;
     if (name) return name;
     if (code) return code;
     return "—";
   }
 
+  // ✅ mount: load ALL documents only
   useEffect(() => {
+    setMode("all");
     fetchDocs("/documents", { per_page: perPage, page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ perPage change: reload based on mode
   useEffect(() => {
-    fetchDocs("/documents/search", buildParams());
-  }, [perPage]);
+    if (mode === "search") {
+      fetchDocs("/documents/search", buildSearchParams({ page: 1 }));
+    } else {
+      fetchDocs("/documents", { per_page: perPage, page: 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perPage, mode]);
 
   const canPrev = !!pageData?.prev_page_url;
   const canNext = !!pageData?.next_page_url;
@@ -555,7 +568,7 @@ export default function SearchDocuments() {
                 value={filters.judge_name}
                 onChange={(v) => setFilters((p) => ({ ...p, judge_name: v }))}
                 fetchOptions={fetchJudgeNames}
-                placeholder="كتب وغيطلعوا القضاة…"
+                placeholder="اكتب وسيتم عرض القضاة…"
               />
             </div>
           </div>
@@ -621,6 +634,7 @@ export default function SearchDocuments() {
                   q: "",
                 });
                 setCaseTypesMap({});
+                setMode("all");
                 fetchDocs("/documents", { per_page: perPage, page: 1 });
               }}
             >
@@ -650,12 +664,7 @@ export default function SearchDocuments() {
 
         <div className="rowActions">
           <div className="rowsSelect">
-            <span className="help">عرض:</span>
-            <select
-              className="select select--sm"
-              value={perPage}
-              onChange={(e) => setPerPage(parseInt(e.target.value, 10))}
-            >
+            <select className="select select--sm" value={perPage} onChange={(e) => setPerPage(parseInt(e.target.value, 10))}>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={30}>30</option>
@@ -731,21 +740,11 @@ export default function SearchDocuments() {
             </div>
 
             <div className="rowActions">
-              <button
-                className="btn btnSecondary"
-                type="button"
-                disabled={!canPrev || loading}
-                onClick={() => fetchDocs(pageData.prev_page_url)}
-              >
+              <button className="btn btnSecondary" type="button" disabled={!canPrev || loading} onClick={() => fetchDocs(pageData.prev_page_url)}>
                 السابق
               </button>
 
-              <button
-                className="btn btnSecondary"
-                type="button"
-                disabled={!canNext || loading}
-                onClick={() => fetchDocs(pageData.next_page_url)}
-              >
+              <button className="btn btnSecondary" type="button" disabled={!canNext || loading} onClick={() => fetchDocs(pageData.next_page_url)}>
                 التالي
               </button>
             </div>

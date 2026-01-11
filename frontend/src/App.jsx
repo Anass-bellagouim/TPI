@@ -16,7 +16,6 @@ import Employees from "./pages/Employees.jsx";
 import AddEmployee from "./pages/AddEmployee.jsx";
 import EmployeeDetails from "./pages/EmployeeDetails.jsx";
 
-// ✅ Admin pages
 import DivisionsAdmin from "./pages/DivisionsAdmin.jsx";
 import CaseTypesAdmin from "./pages/CaseTypesAdmin.jsx";
 import JudgesAdmin from "./pages/JudgesAdmin.jsx";
@@ -36,8 +35,8 @@ export default function App() {
 
         {/* ✅ APP (مع AppShell) */}
         <Route element={<AppShell />}>
-          {/* Root */}
-          <Route path="/" element={<Navigate to="/search" replace />} />
+          {/* ✅ index بدل "/" */}
+          <Route index element={<Navigate to="/search" replace />} />
 
           {/* ✅ Authenticated (أي user) */}
           <Route element={<RequireAuth />}>
@@ -49,7 +48,7 @@ export default function App() {
             {/* Account */}
             <Route path="/change-password" element={<ChangePassword />} />
 
-            {/* ✅ Admin only (خاص الموظفين و lookups فقط) */}
+            {/* ✅ Admin only */}
             <Route element={<RequireAdmin />}>
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/add" element={<AddEmployee />} />
@@ -61,11 +60,11 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* ✅ fallback داخل AppShell */}
+          {/* ✅ fallback داخل AppShell: أي route أخرى داخل التطبيق */}
           <Route path="*" element={<Navigate to="/search" replace />} />
         </Route>
 
-        {/* ✅ fallback خارج AppShell (أي واحد ماشي logged in) */}
+        {/* ✅ fallback خارج AppShell: أي route أخرى خارج التطبيق */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>

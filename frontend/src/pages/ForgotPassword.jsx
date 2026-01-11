@@ -40,7 +40,7 @@ export default function ForgotPassword() {
 
       setErr("رد غير متوقع من الخادم");
     } catch (e) {
-      setErr(e?.response?.data?.message || "وقع خطأ أثناء التحقق");
+      setErr(e?.response?.data?.message || "حدث خطأ أثناء التحقق");
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export default function ForgotPassword() {
       if (e?.response?.status === 403) {
         setErr("هذه الخدمة متاحة للإدارة فقط");
       } else if (e?.response?.status === 429) {
-        setErr("المرجو الانتظار قبل إعادة المحاولة");
+        setErr("يرجى الانتظار قبل إعادة المحاولة");
       } else {
         setErr(e?.response?.data?.message || "فشل إرسال البريد الإلكتروني");
       }
@@ -96,7 +96,7 @@ export default function ForgotPassword() {
           <div className="alert alertInfo">
             استرجاع كلمة المرور عبر البريد الإلكتروني غير متاح للموظفين.
             <br />
-            المرجو التواصل مع الإدارة لإعادة تعيين كلمة المرور (الافتراضية:{" "}
+            يرجى التواصل مع الإدارة لإعادة تعيين كلمة المرور (الافتراضية:{" "}
             <strong>123456</strong>)
           </div>
         )}
@@ -104,7 +104,7 @@ export default function ForgotPassword() {
         {step === "admin" && (
           <form onSubmit={handleSend} className="form">
             <div className="field">
-              <div className="label">Email الإدارة</div>
+              <div className="label">بريد الإدارة الإلكتروني</div>
               <input
                 className="input"
                 type="email"
@@ -124,7 +124,7 @@ export default function ForgotPassword() {
         {msg && <div className="alert alertSuccess">{msg}</div>}
 
         <div className="help" style={{ marginTop: 10 }}>
-          <Link to="/login">الرجوع لتسجيل الدخول</Link>
+          <Link to="/login">الرجوع إلى تسجيل الدخول</Link>
         </div>
       </div>
     </div>

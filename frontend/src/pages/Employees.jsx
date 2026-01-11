@@ -1,4 +1,3 @@
-// src/pages/Employees.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api.js";
@@ -20,7 +19,6 @@ export default function Employees() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
-  // ✅ نحتافظ بآخر params باش pagination يبقى صحيح
   const lastParamsRef = useRef({ per_page: perPage });
 
   const rows = useMemo(() => pageData?.data || [], [pageData]);
@@ -38,46 +36,40 @@ export default function Employees() {
     try {
       setLoading(true);
 
-      lastParamsRef.current = p; // ✅ نخزن آخر params
+      lastParamsRef.current = p;
 
       const res = await api.get(url, { params: p });
       setPageData(res.data);
 
       if ((res.data?.data || []).length === 0) {
-        setInfo("ما كاين حتى موظف مطابق لهاذ البحث.");
+        setInfo("لا يوجد أي موظف مطابق لهذا البحث.");
       }
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء جلب الموظفين.";
+        "حدث خطأ أثناء جلب الموظفين.";
       setError(msg);
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ أول load
   useEffect(() => {
     fetchEmployees("/admin/employees", params);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ حفظ perPage + refetch (من الصفحة 1)
   useEffect(() => {
     localStorage.setItem(PER_PAGE_KEY, String(perPage));
     fetchEmployees("/admin/employees", params);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perPage]);
 
-  // ✅ LIVE SEARCH + debounce (بدون buttons)
   useEffect(() => {
     const t = setTimeout(() => {
       fetchEmployees("/admin/employees", params);
     }, 350);
 
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   const canPrev = !!pageData?.prev_page_url;
@@ -87,8 +79,7 @@ export default function Employees() {
     <div>
       <div className="pageHeader">
         <div>
-          <h2>الموظفون</h2>
-          <p>بحث + عرض لائحة الموظفين (Admin فقط).</p>
+          <h2>البحث عن موظف</h2>
         </div>
 
         <div className="rowActions">
@@ -110,9 +101,7 @@ export default function Employees() {
         </div>
       )}
 
-      {/* 📋 TABLE CARD */}
       <div className="card">
-        {/* ✅ Search + perPage فوق الجدول (بلا buttons) */}
         <div
           className="listTop"
           style={{
@@ -125,19 +114,16 @@ export default function Employees() {
           }}
         >
           <div style={{ minWidth: 260 }}>
-            <div className="label">بحث عام</div>
-
             <div style={{ position: "relative" }}>
               <input
                 className="input input--sm"
-                placeholder="اسم / لقب / username"
+                placeholder="الاسم / اللقب / اسم المستخدم"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 disabled={loading}
                 style={{ paddingLeft: 34 }}
               />
 
-              {/* ✅ clear داخل input */}
               {!!q && (
                 <button
                   type="button"
@@ -161,7 +147,6 @@ export default function Employees() {
                 </button>
               )}
             </div>
-
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "end" }}>
@@ -190,9 +175,9 @@ export default function Employees() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Full name</th>
-                <th>Username</th>
-                <th>Role</th>
+                <th>الاسم الكامل</th>
+                <th>اسم المستخدم</th>
+                <th>الدور</th>
                 <th>الحالة</th>
                 <th>Actions</th>
               </tr>
@@ -206,11 +191,7 @@ export default function Employees() {
                   <tr key={u.id} style={{ opacity: isActive ? 1 : 0.75 }}>
                     <td>{u.id}</td>
 
-                    <td>
-                      {u.full_name ||
-                        `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
-                        "—"}
-                    </td>
+                    <td>{u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "—"}</td>
 
                     <td>{u.username || "—"}</td>
                     <td>{u.role || "user"}</td>
@@ -226,7 +207,7 @@ export default function Employees() {
                           border: "1px solid var(--border)",
                         }}
                       >
-                        {isActive ? "✅ مفعل" : "⛔ موقوف"}
+                        {isActive ? "✅ مفعّل" : "⛔ موقوف"}
                       </span>
                     </td>
 

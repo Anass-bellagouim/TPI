@@ -1,4 +1,3 @@
-// src/pages/AddEmployee.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api.js";
@@ -6,7 +5,7 @@ import api from "../api.js";
 function sanitizeUsername(raw) {
   if (!raw) return "";
   let v = raw.trim().toLowerCase();
-  v = v.replace(/@.*$/, ""); // لو كتب email بالغلط
+  v = v.replace(/@.*$/, "");
   v = v.replace(/[^a-z0-9_-]/g, "_");
   v = v.replace(/_+/g, "_");
   v = v.replace(/^_+|_+$/g, "");
@@ -30,7 +29,7 @@ const EMPTY_FORM = {
   last_name: "",
   username: "",
   role: "user",
-  email: "", // ✅ NEW
+  email: "",
   password: "",
   password_confirmation: "",
 };
@@ -58,42 +57,34 @@ export default function AddEmployee() {
 
   useEffect(() => {
     resetForm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ إذا role رجع user: حيد email من الفورم باش مايبقاش كيتصيفط
   useEffect(() => {
     if (!isAdmin && form.email) {
       setForm((p) => ({ ...p, email: "" }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  // ✅ password UX
   useEffect(() => {
     if (!form.password && form.password_confirmation) {
       setForm((p) => ({ ...p, password_confirmation: "" }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.password]);
 
   function validate() {
-    if (!form.first_name.trim()) return "الاسم (first_name) مطلوب.";
-    if (!form.last_name.trim()) return "النسب (last_name) مطلوب.";
-    if (!form.username.trim()) return "username مطلوب.";
-    if (!sanitizeUsername(form.username.trim())) return "username غير صالح. استعمل غير حروف/أرقام/_/-";
+    if (!form.first_name.trim()) return "الاسم مطلوب.";
+    if (!form.last_name.trim()) return "النسب مطلوب.";
+    if (!form.username.trim()) return "اسم المستخدم مطلوب.";
+    if (!sanitizeUsername(form.username.trim())) return "اسم المستخدم غير صالح. استعمل فقط حروفًا/أرقامًا/_/-";
 
-    // ✅ email required فقط للأدمين
     if (isAdmin) {
-      if (!form.email.trim()) return "Email مطلوب للأدمين.";
-      // check بسيط
+      if (!form.email.trim()) return "البريد الإلكتروني مطلوب للمسؤول.";
       const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
-      if (!ok) return "Email غير صالح.";
+      if (!ok) return "البريد الإلكتروني غير صالح.";
     }
 
-    // ✅ password optional
     if (form.password) {
-      if (form.password.length < 6) return "كلمة المرور خاصها تكون على الأقل 6 حروف.";
+      if (form.password.length < 6) return "يجب أن تكون كلمة المرور على الأقل 6 أحرف.";
       if (form.password !== form.password_confirmation) return "تأكيد كلمة المرور غير مطابق.";
     }
 
@@ -113,13 +104,8 @@ export default function AddEmployee() {
       last_name: form.last_name.trim(),
       username: sanitizeUsername(form.username),
       role: form.role,
-
-      // ✅ email كيتصيفط غير للأدمين
       ...(isAdmin ? { email: form.email.trim() } : {}),
-
-      ...(form.password
-        ? { password: form.password, password_confirmation: form.password_confirmation }
-        : {}),
+      ...(form.password ? { password: form.password, password_confirmation: form.password_confirmation } : {}),
     };
 
     try {
@@ -143,7 +129,6 @@ export default function AddEmployee() {
       <div className="pageHeader">
         <div>
           <h2>إضافة موظف</h2>
-          <p>إنشاء حساب جديد (Admin فقط).</p>
         </div>
         <div className="rowActions">
           <Link className="btn btnSecondary" to="/employees">
@@ -152,14 +137,22 @@ export default function AddEmployee() {
         </div>
       </div>
 
-      {msg && <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>{msg}</div>}
-      {err && <div className="alert alertError card" style={{ marginBottom: 14 }}><strong>خطأ:</strong> {err}</div>}
+      {msg && (
+        <div className="alert alertSuccess card" style={{ marginBottom: 14 }}>
+          {msg}
+        </div>
+      )}
+      {err && (
+        <div className="alert alertError card" style={{ marginBottom: 14 }}>
+          <strong>خطأ:</strong> {err}
+        </div>
+      )}
 
       <div className="card">
         <form key={formKey} onSubmit={submit} className="form">
           <div className="grid2">
             <div className="field">
-              <div className="label">الاسم (first_name)</div>
+              <div className="label">الاسم</div>
               <input
                 className="input"
                 value={form.first_name}
@@ -170,7 +163,7 @@ export default function AddEmployee() {
             </div>
 
             <div className="field">
-              <div className="label">النسب (last_name)</div>
+              <div className="label">النسب</div>
               <input
                 className="input"
                 value={form.last_name}
@@ -181,7 +174,7 @@ export default function AddEmployee() {
             </div>
 
             <div className="field">
-              <div className="label">Username</div>
+              <div className="label">اسم المستخدم</div>
               <input
                 className="input"
                 value={form.username}
@@ -191,16 +184,10 @@ export default function AddEmployee() {
                 disabled={loading}
                 autoComplete="off"
               />
-              <div className="help">
-                مسموح غير: حروف/أرقام/_/-
-                {form.username && usernamePreview !== form.username.trim().toLowerCase() ? (
-                  <> — سيتم حفظه كـ: <b>{usernamePreview || "(فارغ)"}</b></>
-                ) : null}
-              </div>
             </div>
 
             <div className="field">
-              <div className="label">Role</div>
+              <div className="label">الدور</div>
               <select
                 className="select"
                 value={form.role}
@@ -210,13 +197,11 @@ export default function AddEmployee() {
                 <option value="user">user</option>
                 <option value="admin">admin</option>
               </select>
-              <div className="help">⚠️ admin عندو صلاحيات كاملة.</div>
             </div>
 
-            {/* ✅ NEW: Email يظهر غير للأدمين */}
             {isAdmin && (
               <div className="field">
-                <div className="label">Email (Admin فقط)</div>
+                <div className="label">Email (للمسؤول فقط)</div>
                 <input
                   className="input"
                   type="email"
@@ -227,18 +212,18 @@ export default function AddEmployee() {
                   disabled={loading}
                   autoComplete="off"
                 />
-                <div className="help">مطلوب للأدمين باش Reset Password يقدر يخدم.</div>
+                <div className="help">مطلوب للمسؤول لكي تعمل إعادة تعيين كلمة المرور.</div>
               </div>
             )}
 
             <div className="field">
-              <div className="label">كلمة المرور (اختياري)</div>
+              <div className="label">كلمة المرور</div>
               <input
                 className="input"
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                placeholder='إلا خليتيها خاوية → default "123456"'
+                placeholder='إذا تركتها فارغة → الافتراضي "123456"'
                 disabled={loading}
                 autoComplete="new-password"
               />
@@ -264,10 +249,6 @@ export default function AddEmployee() {
             <button className="btn btnSecondary" type="button" disabled={loading} onClick={resetForm}>
               مسح
             </button>
-          </div>
-
-          <div className="help" style={{ marginTop: 10 }}>
-            ملاحظة: Email كيبان وكيولي مطلوب غير للـ <b>admin</b>. أما <b>user</b> ماعندو حتى email.
           </div>
         </form>
       </div>

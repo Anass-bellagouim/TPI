@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from "../api.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 function norm(s) {
   return (s || "").toString().trim().toLowerCase();
@@ -19,12 +20,9 @@ export default function JudgesAdmin() {
   const [form, setForm] = useState({ full_name: "", is_active: true });
 
   const [editingId, setEditingId] = useState(null);
-  // ✅ edit: الاسم فقط
   const [edit, setEdit] = useState({ full_name: "" });
-  // ✅ نخزنو is_active ديال row اللي كيتعدل
   const [editingIsActive, setEditingIsActive] = useState(true);
 
-  // ✅ perPage + page (client-side)
   const [perPage, setPerPage] = useState(readPerPage());
   const [page, setPage] = useState(1);
 
@@ -32,6 +30,10 @@ export default function JudgesAdmin() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+
+  // ✅ confirm modal (delete)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmRow, setConfirmRow] = useState(null);
 
   async function fetchJudges() {
     setError("");
@@ -42,12 +44,12 @@ export default function JudgesAdmin() {
       const data = res.data?.data || res.data || [];
       const arr = Array.isArray(data) ? data : [];
       setRows(arr);
-      if ((arr?.length || 0) === 0) setInfo("ما كايناش قضاة دابا. زيد أول قاضي من الفورم.");
+      if ((arr?.length || 0) === 0) setInfo("لا يوجد قضاة حاليًا. أضف أول قاضٍ من النموذج.");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء جلب القضاة.";
+        "حدث خطأ أثناء جلب القضاة.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -58,13 +60,11 @@ export default function JudgesAdmin() {
     fetchJudges();
   }, []);
 
-  // ✅ حفظ perPage
   useEffect(() => {
     localStorage.setItem(PER_PAGE_KEY, String(perPage));
     setPage(1);
   }, [perPage]);
 
-  // ✅ أي بحث جديد رجع للصفحة 1
   useEffect(() => {
     setPage(1);
   }, [q]);
@@ -75,14 +75,12 @@ export default function JudgesAdmin() {
     return rows.filter((r) => norm(r.full_name).includes(qq));
   }, [rows, q]);
 
-  // ✅ Client-side pagination
   const total = filtered.length;
   const lastPage = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(Math.max(1, page), lastPage);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage]);
 
   const pagedRows = useMemo(() => {
@@ -99,7 +97,7 @@ export default function JudgesAdmin() {
     setInfo("");
 
     const full_name = form.full_name.trim();
-    if (!full_name) return setError("اسم القاضي ضروري.");
+    if (!full_name) return setError("اسم القاضي مطلوب.");
 
     try {
       setSaving(true);
@@ -116,7 +114,7 @@ export default function JudgesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء إضافة القاضي.";
+        "حدث خطأ أثناء إضافة القاضي.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -140,9 +138,8 @@ export default function JudgesAdmin() {
     setInfo("");
 
     const full_name = edit.full_name.trim();
-    if (!full_name) return setError("اسم القاضي ضروري.");
+    if (!full_name) return setError("اسم القاضي مطلوب.");
 
-    // ✅ خذ آخر is_active من rows (باش ما يرجّعش الحالة للقديم)
     const currentRow = rows.find((r) => r.id === id);
     const latestIsActive = currentRow ? !!currentRow.is_active : !!editingIsActive;
 
@@ -160,23 +157,29 @@ export default function JudgesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التحديث.";
+        "حدث خطأ أثناء التحديث.";
       setError(msg);
     } finally {
       setSaving(false);
     }
   }
 
-  async function removeJudge(id) {
+  // ✅ نفس منطق الحذف، غير confirmation ولى modal
+  function askRemoveJudge(row) {
     setError("");
     setInfo("");
+    setConfirmRow(row);
+    setConfirmOpen(true);
+  }
 
-    const ok = window.confirm("واش متأكد بغيتي تحذف هاد القاضي؟");
-    if (!ok) return;
+  async function doRemoveJudge() {
+    if (!confirmRow) return;
 
+    setError("");
+    setInfo("");
     try {
       setSaving(true);
-      const res = await api.delete(`/admin/judges/${id}`);
+      const res = await api.delete(`/admin/judges/${confirmRow.id}`);
       setInfo(res.data?.message || "تم حذف القاضي.");
       await fetchJudges();
       setPage(1);
@@ -184,10 +187,12 @@ export default function JudgesAdmin() {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء الحذف.";
+        "حدث خطأ أثناء الحذف.";
       setError(msg);
     } finally {
       setSaving(false);
+      setConfirmOpen(false);
+      setConfirmRow(null);
     }
   }
 
@@ -197,9 +202,7 @@ export default function JudgesAdmin() {
 
     const nextActive = !row.is_active;
 
-    // ✅ Optimistic UI
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: nextActive } : r)));
-
     if (editingId === row.id) setEditingIsActive(nextActive);
 
     try {
@@ -210,14 +213,13 @@ export default function JudgesAdmin() {
       });
       setInfo(res.data?.message || "تم التحديث.");
     } catch (e) {
-      // rollback
       setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: !!row.is_active } : r)));
       if (editingId === row.id) setEditingIsActive(!!row.is_active);
 
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "وقع خطأ أثناء التفعيل/التعطيل.";
+        "حدث خطأ أثناء التفعيل/التعطيل.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -229,7 +231,6 @@ export default function JudgesAdmin() {
       <div className="pageHeader">
         <div>
           <h2>إدارة القضاة</h2>
-          <p>إضافة / تعديل / تعطيل القضاة. (Admin فقط)</p>
         </div>
 
         <div className="headerActions">
@@ -251,9 +252,8 @@ export default function JudgesAdmin() {
         </div>
       )}
 
-      {/* ✅ Add (TOP) */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <h3 className="cardTitle">إضافة قاضي جديد</h3>
+        <h3 className="cardTitle">إضافة قاضٍ جديد</h3>
 
         <form onSubmit={onAdd}>
           <div className="field">
@@ -265,7 +265,6 @@ export default function JudgesAdmin() {
               placeholder="مثال: القاضي محمد..."
               disabled={saving}
             />
-            <div className="help">خاص الاسم يكون unique.</div>
           </div>
 
           <div className="field" style={{ marginTop: 10 }}>
@@ -276,7 +275,7 @@ export default function JudgesAdmin() {
                 onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
                 disabled={saving}
               />
-              <span>مفعّل (Active)</span>
+              <span>مفعّل</span>
             </label>
           </div>
 
@@ -284,24 +283,17 @@ export default function JudgesAdmin() {
             <button className="btn btnPrimary" type="submit" disabled={saving}>
               {saving ? "..." : "إضافة"}
             </button>
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={saving}
-              onClick={() => setForm({ full_name: "", is_active: true })}
-            >
+            <button className="btn btnSecondary" type="button" disabled={saving} onClick={() => setForm({ full_name: "", is_active: true })}>
               مسح
             </button>
           </div>
         </form>
       </div>
 
-      {/* ✅ List (BOTTOM) */}
       <div className="card">
-        {/* ✅ listTop: search + perPage فوق الجدول */}
         <div className="listTop" style={{ alignItems: "center" }}>
           <div>
-            <h3 className="cardTitle">لائحة القضاة</h3>
+            <h3 className="cardTitle">قائمة القضاة</h3>
             <div className="help">
               المجموع: {total} — صفحة {safePage}/{lastPage}
             </div>
@@ -311,12 +303,7 @@ export default function JudgesAdmin() {
             <input className="input input--sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." />
 
             <div className="field" style={{ minWidth: 40 }}>
-              <select
-                className="select select--sm"
-                value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
-                disabled={loading || saving}
-              >
+              <select className="select select--sm" value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} disabled={loading || saving}>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -364,18 +351,12 @@ export default function JudgesAdmin() {
 
                       <td>
                         {isEditing ? (
-                          <input
-                            className="input input--sm"
-                            value={edit.full_name}
-                            onChange={(e) => setEdit((p) => ({ ...p, full_name: e.target.value }))}
-                            disabled={saving}
-                          />
+                          <input className="input input--sm" value={edit.full_name} onChange={(e) => setEdit((p) => ({ ...p, full_name: e.target.value }))} disabled={saving} />
                         ) : (
                           <div className="nameCell">{r.full_name}</div>
                         )}
                       </td>
 
-                      {/* ✅ Status: ديما زر toggle */}
                       <td>
                         <button
                           type="button"
@@ -383,12 +364,7 @@ export default function JudgesAdmin() {
                           onClick={() => quickToggle(r)}
                           disabled={saving}
                           title={r.is_active ? "اضغط لتعطيل القاضي" : "اضغط لتفعيل القاضي"}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: saving ? "not-allowed" : "pointer",
-                            padding: 0,
-                          }}
+                          style={{ background: "transparent", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: 0 }}
                         >
                           {r.is_active ? "Active" : "Inactive"}
                         </button>
@@ -412,7 +388,7 @@ export default function JudgesAdmin() {
                                 تعديل
                               </button>
 
-                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => removeJudge(r.id)}>
+                              <button className="btn btnDanger btn--sm" type="button" disabled={saving} onClick={() => askRemoveJudge(r)}>
                                 حذف
                               </button>
                             </>
@@ -426,37 +402,33 @@ export default function JudgesAdmin() {
           </table>
         </div>
 
-        {/* ✅ pager local */}
         <div className="pager" style={{ marginTop: 12 }}>
-          <div className="help">
-            عرض {pagedRows.length} من {total} — per page: <b>{perPage}</b>
-          </div>
-
           <div className="rowActions">
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={!canPrev || loading || saving}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
+            <button className="btn btnSecondary" type="button" disabled={!canPrev || loading || saving} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               السابق
             </button>
 
-            <button
-              className="btn btnSecondary"
-              type="button"
-              disabled={!canNext || loading || saving}
-              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-            >
+            <button className="btn btnSecondary" type="button" disabled={!canNext || loading || saving} onClick={() => setPage((p) => Math.min(lastPage, p + 1))}>
               التالي
             </button>
           </div>
         </div>
-
-        <div className="help" style={{ marginTop: 10 }}>
-          ملاحظة: التعطيل كيدير is_active=0 وكيخلي القاضي ما يبانش فـ lookups (إلا active=1).
-        </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        danger
+        title="حذف القاضي نهائيًا"
+        message={`هل أنت متأكد أنك تريد حذف القاضي: "${confirmRow?.full_name || ""}"؟ هذه العملية نهائية.`}
+        confirmText="نعم، احذف"
+        cancelText="إلغاء"
+        loading={saving}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setConfirmRow(null);
+        }}
+        onConfirm={doRemoveJudge}
+      />
     </div>
   );
 }
