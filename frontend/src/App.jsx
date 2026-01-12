@@ -1,5 +1,5 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useContext, useMemo } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import AppShell from "./layout/AppShell.jsx";
 
@@ -7,6 +7,7 @@ import Login from "./pages/Login.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 
+import Dashboard from "./pages/Dashboard.jsx";
 import SearchDocuments from "./pages/SearchDocuments.jsx";
 import AddDocument from "./pages/AddDocument.jsx";
 import DocumentDetails from "./pages/DocumentDetails.jsx";
@@ -20,51 +21,83 @@ import DivisionsAdmin from "./pages/DivisionsAdmin.jsx";
 import CaseTypesAdmin from "./pages/CaseTypesAdmin.jsx";
 import JudgesAdmin from "./pages/JudgesAdmin.jsx";
 
-import { AuthProvider } from "./auth/AuthContext.jsx";
+import { AuthProvider, AuthContext } from "./context/AuthContext.jsx";
 import RequireAuth from "./auth/RequireAuth.jsx";
 import RequireAdmin from "./auth/RequireAdmin.jsx";
+
+function HomeRedirect() {
+  const ctx = useContext(AuthContext) || {};
+  const { user, isLoading, isAuthenticated } = ctx;
+  const location = useLocation();
+
+  const to = useMemo(() => {
+    if (!isAuthenticated) return "/login";
+    const role = String(user?.role || "").toLowerCase();
+    return role === "admin" ? "/dashboard" : "/search";
+  }, [isAuthenticated, user]);
+
+  if (isLoading) return null;
+
+  return <Navigate to={to} replace state={{ from: location.pathname }} />;
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* ✅ PUBLIC (بدون AppShell) */}
+        {/* ✅ PUBLIC */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* ✅ APP (مع AppShell) */}
+        {/* ✅ APP */}
         <Route element={<AppShell />}>
-          {/* ✅ index بدل "/" */}
-          <Route index element={<Navigate to="/search" replace />} />
+          {/* ✅ أول صفحة بعد الدخول */}
+          <Route
+            index
+            element={
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            }
+          />
 
-          {/* ✅ Authenticated (أي user) */}
+          {/* ✅ أي user authenticated */}
           <Route element={<RequireAuth />}>
             {/* Documents */}
-            <Route path="/search" element={<SearchDocuments />} />
-            <Route path="/add" element={<AddDocument />} />
-            <Route path="/documents/:id" element={<DocumentDetails />} />
+            <Route path="search" element={<SearchDocuments />} />
+            <Route path="add" element={<AddDocument />} />
+            <Route path="documents/:id" element={<DocumentDetails />} />
 
             {/* Account */}
-            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="change-password" element={<ChangePassword />} />
 
             {/* ✅ Admin only */}
             <Route element={<RequireAdmin />}>
-              <Route path="/employees" element={<Employees />} />
-              <Route path="/employees/add" element={<AddEmployee />} />
-              <Route path="/employees/:id" element={<EmployeeDetails />} />
+              <Route path="dashboard" element={<Dashboard />} />
 
-              <Route path="/divisions" element={<DivisionsAdmin />} />
-              <Route path="/case-types" element={<CaseTypesAdmin />} />
-              <Route path="/judges" element={<JudgesAdmin />} />
+              <Route path="employees" element={<Employees />} />
+              <Route path="employees/add" element={<AddEmployee />} />
+              <Route path="employees/:id" element={<EmployeeDetails />} />
+
+              <Route path="divisions" element={<DivisionsAdmin />} />
+              <Route path="case-types" element={<CaseTypesAdmin />} />
+              <Route path="judges" element={<JudgesAdmin />} />
             </Route>
           </Route>
 
-          {/* ✅ fallback داخل AppShell: أي route أخرى داخل التطبيق */}
-          <Route path="*" element={<Navigate to="/search" replace />} />
+          {/* ✅ fallback داخل AppShell */}
+          <Route
+            path="*"
+            element={
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            }
+          />
         </Route>
 
-        {/* ✅ fallback خارج AppShell: أي route أخرى خارج التطبيق */}
+        {/* ✅ fallback خارج AppShell */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>

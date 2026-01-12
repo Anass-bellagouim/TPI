@@ -1,10 +1,5 @@
-import React, {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+// src/context/AuthContext.jsx
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import api, { getToken, setToken as persistToken, clearToken } from "../api";
 
 export const AuthContext = createContext(null);
@@ -12,14 +7,21 @@ export const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getToken());
   const [user, setUser] = useState(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+
+  const fetchMe = useCallback(async () => {
+    const res = await api.get("/auth/me");
+    const me = res.data?.user ?? res.data;
+    return me;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
     } catch (_) {
-      // يتم تجاهل الخطأ
+      // ignore
     } finally {
       clearToken();
       setToken(null);
@@ -27,13 +29,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const fetchMe = useCallback(async () => {
-    const res = await api.get("/auth/me");
-    return res.data?.user ?? res.data;
-  }, []);
-
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     (async () => {
       setIsLoading(true);
@@ -41,7 +38,7 @@ export function AuthProvider({ children }) {
 
       const storedToken = getToken();
       if (!storedToken) {
-        if (mounted) {
+        if (isMounted) {
           setToken(null);
           setUser(null);
           setIsLoading(false);
@@ -49,38 +46,36 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      if (mounted) setToken(storedToken);
+      if (isMounted) setToken(storedToken);
 
       try {
         const me = await fetchMe();
 
         if (me?.is_active === false) {
           clearToken();
-          if (mounted) {
+          if (isMounted) {
             setToken(null);
             setUser(null);
             setAuthError("ACCOUNT_DISABLED");
           }
         } else {
-          if (mounted) setUser(me);
+          if (isMounted) setUser(me);
         }
       } catch (err) {
-        if (mounted) {
+        // ✅ إذا me فشلت: صافي خرج user/token باش RequireAuth يديك للـ login
+        clearToken();
+        if (isMounted) {
           setUser(null);
-          setToken(getToken());
-          setAuthError(
-            err?.response?.status
-              ? `HTTP_${err.response.status}`
-              : "ME_FAILED"
-          );
+          setToken(null);
+          setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "ME_FAILED");
         }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     })();
 
     return () => {
-      mounted = false;
+      isMounted = false;
     };
   }, [fetchMe]);
 
@@ -90,7 +85,6 @@ export function AuthProvider({ children }) {
 
     try {
       const res = await api.post("/auth/login", { identifier, password });
-
       const newToken = res.data?.token;
       const loggedUser = res.data?.user;
 
@@ -104,9 +98,7 @@ export function AuthProvider({ children }) {
 
       return { user: loggedUser, token: newToken };
     } catch (err) {
-      setAuthError(
-        err?.response?.status ? `HTTP_${err.response.status}` : "LOGIN_FAILED"
-      );
+      setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "LOGIN_FAILED");
       throw err;
     } finally {
       setIsLoading(false);
@@ -120,10 +112,13 @@ export function AuthProvider({ children }) {
       isLoading,
       authError,
       isAuthenticated: !!token && !!user,
+
       login,
       logout,
+
       refreshMe: async () => {
         setIsLoading(true);
+        setAuthError(null);
         try {
           const me = await fetchMe();
           setUser(me);

@@ -174,7 +174,6 @@ export default function Employees() {
           <table className="table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>الاسم الكامل</th>
                 <th>اسم المستخدم</th>
                 <th>الدور</th>
@@ -189,7 +188,6 @@ export default function Employees() {
 
                 return (
                   <tr key={u.id} style={{ opacity: isActive ? 1 : 0.75 }}>
-                    <td>{u.id}</td>
 
                     <td>{u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "—"}</td>
 

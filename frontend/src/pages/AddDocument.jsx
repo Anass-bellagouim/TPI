@@ -553,9 +553,19 @@ export default function AddDocument() {
         </div>
 
         <div className="headerActions">
-          <button className="btn btnSecondary" type="button" disabled={loading} onClick={() => navigate("/search")}>
-            رجوع
-          </button>
+        <button
+          className="btn btnSecondary"
+          type="button"
+          disabled={loading}
+          onClick={() => {
+            // رجوع لآخر صفحة (history back)
+            if (window.history.length > 1) navigate(-1);
+            else navigate("/search");
+          }}
+        >
+          رجوع
+        </button>
+
         </div>
       </div>
 

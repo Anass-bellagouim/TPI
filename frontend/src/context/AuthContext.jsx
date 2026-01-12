@@ -1,9 +1,13 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useEffect, useMemo, useState, useContext } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import api, { getToken, setToken as persistToken, clearToken } from "../api";
 
 export const AuthContext = createContext(null);
 
+/* =========================
+   Provider
+   ========================= */
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getToken());
   const [user, setUser] = useState(null);
@@ -11,21 +15,22 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
+  const fetchMe = useCallback(async () => {
+    const res = await api.get("/auth/me");
+    const me = res.data?.user ?? res.data;
+    return me;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
     } catch (_) {
+      // ignore
     } finally {
       clearToken();
       setToken(null);
       setUser(null);
     }
-  }, []);
-
-  const fetchMe = useCallback(async () => {
-    const res = await api.get("/auth/me");
-    const me = res.data?.user ?? res.data;
-    return me;
   }, []);
 
   useEffect(() => {
@@ -61,9 +66,11 @@ export function AuthProvider({ children }) {
           if (isMounted) setUser(me);
         }
       } catch (err) {
+        // إذا /auth/me فشلت → خرج المستخدم
+        clearToken();
         if (isMounted) {
           setUser(null);
-          setToken(getToken());
+          setToken(null);
           setAuthError(err?.response?.status ? `HTTP_${err.response.status}` : "ME_FAILED");
         }
       } finally {
@@ -90,7 +97,6 @@ export function AuthProvider({ children }) {
       }
 
       persistToken(newToken);
-
       setToken(newToken);
       setUser(loggedUser);
 
@@ -130,4 +136,53 @@ export function AuthProvider({ children }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/* =========================
+   Guards (RequireAuth / RequireAdmin)
+   ========================= */
+
+export function RequireAuth({ children }) {
+  const ctx = useContext(AuthContext) || {};
+  const { isLoading, isAuthenticated } = ctx;
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="container" style={{ padding: 24, textAlign: "center" }}>
+        جاري التحميل...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return children ? children : <Outlet />;
+}
+
+export function RequireAdmin({ children }) {
+  const ctx = useContext(AuthContext) || {};
+  const { user, isLoading, isAuthenticated } = ctx;
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="container" style={{ padding: 20, textAlign: "center" }}>
+        جارٍ التحقق من الصلاحيات...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  const role = String(user?.role || "").toLowerCase();
+  if (role !== "admin") {
+    return <Navigate to="/search" replace state={{ from: location.pathname }} />;
+  }
+
+  return children ? children : <Outlet />;
 }

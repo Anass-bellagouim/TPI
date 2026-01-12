@@ -1,20 +1,24 @@
+// src/auth/RequireAuth.jsx
 import React, { useContext } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { AuthContext } from "./AuthContext.jsx";
+import { AuthContext } from "../context/AuthContext.jsx";
 
-export default function RequireAuth() {
+export default function RequireAuth({ children }) {
   const ctx = useContext(AuthContext) || {};
-  const { user, isLoading } = ctx;
+  const { isLoading, isAuthenticated } = ctx;
   const location = useLocation();
 
   if (isLoading) {
-    return <div style={{ padding: 20 }}>جارٍ التحقق من الجلسة...</div>;
+    return (
+      <div className="container" style={{ padding: 24, textAlign: "center" }}>
+        جاري التحميل...
+      </div>
+    );
   }
 
-  // ✅ السطر الأهم: الاعتماد فقط على وجود المستخدم (user)
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  return <Outlet />;
+  return children ? children : <Outlet />;
 }

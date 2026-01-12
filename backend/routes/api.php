@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\Admin\DivisionAdminController;
 use App\Http\Controllers\Api\Admin\CaseTypeAdminController;
 use App\Http\Controllers\Api\Admin\JudgeAdminController;
 
+// ✅ Dashboard (NEW)
+use App\Http\Controllers\Api\Admin\DashboardController;
+
 /*
 |--------------------------------------------------------------------------
 | Health / Ping
@@ -84,13 +87,8 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('lookups')->group(function () {
-        // GET /api/lookups/divisions?active=1
         Route::get('/divisions', [LookupsController::class, 'divisions']);
-
-        // GET /api/lookups/case-types?division_id=1&q=2101&active=1
         Route::get('/case-types', [LookupsController::class, 'caseTypes']);
-
-        // GET /api/lookups/judges?q=محمد&active=1
         Route::get('/judges', [LookupsController::class, 'judges']);
     });
 
@@ -101,19 +99,22 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::prefix('admin')->middleware('admin')->group(function () {
 
+        // ✅ Dashboard (NEW)
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+
         // ✅ Divisions CRUD
         Route::get('/divisions', [DivisionAdminController::class, 'index']);
         Route::post('/divisions', [DivisionAdminController::class, 'store']);
         Route::patch('/divisions/{division}', [DivisionAdminController::class, 'update']);
         Route::delete('/divisions/{division}', [DivisionAdminController::class, 'destroy']);
 
-        // ✅ Case Types CRUD (قضايا/رموز حسب الشعبة)
+        // ✅ Case Types CRUD
         Route::get('/case-types', [CaseTypeAdminController::class, 'index']);
         Route::post('/case-types', [CaseTypeAdminController::class, 'store']);
         Route::patch('/case-types/{caseType}', [CaseTypeAdminController::class, 'update']);
         Route::delete('/case-types/{caseType}', [CaseTypeAdminController::class, 'destroy']);
 
-        // ✅ Judges CRUD (إدارة القضاة)  ← هذا هو اللي ناقص عندك
+        // ✅ Judges CRUD
         Route::get('/judges', [JudgeAdminController::class, 'index']);
         Route::post('/judges', [JudgeAdminController::class, 'store']);
         Route::patch('/judges/{judge}', [JudgeAdminController::class, 'update']);

@@ -453,7 +453,7 @@ img { max-width: 100%; }
   color: #fff;
   box-shadow: 0 12px 20px rgba(193, 39, 45, 0.20);
 }
-.btnPrimary:hover { filter: brightness(0.96); }
+.btnPrimary:hover { filter: brightness(0.96); text-decoration: none; }
 .btnPrimary:disabled { box-shadow: none; }
 
 .btnSecondary {
@@ -464,6 +464,7 @@ img { max-width: 100%; }
 .btnSecondary:hover {
   background: var(--secondary-2);
   border-color: var(--border-2);
+  text-decoration: none;
 }
 
 .btnDanger {
@@ -998,4 +999,217 @@ iframe { background: #fff; }
 .pdfPicked__clear:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+
+/* =========================
+   Dashboard (KPIs + Latest)
+   ========================= */
+
+.dashKpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+@media (max-width: 980px) {
+  .dashKpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .dashKpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpiCard {
+  padding: 16px;
+}
+
+.kpiTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kpiTitle {
+  font-weight: 950;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.kpiValue {
+  font-size: 28px;
+  font-weight: 950;
+  margin-top: 10px;
+  letter-spacing: 0.2px;
+}
+
+.kpiSub {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+
+
+/* =========================
+   Navbar center menu (RTL)
+   ========================= */
+
+.navbar__inner--centered {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.navCenter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.navGroup {
+  position: relative;
+}
+
+/* ✅ Ensure buttons receive hover (no overlay eating events) */
+.navGroupBtn,
+.navDropItem {
+  pointer-events: auto;
+  position: relative;
+  z-index: 5;
+}
+
+/* ✅ Stronger + smoother hover */
+.navGroupBtn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.08s ease;
+}
+
+.navGroupBtn:hover {
+  background: rgba(193, 39, 45, 0.10);
+  border-color: rgba(193, 39, 45, 0.28);
+  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.12);
+  transform: translateY(-1px);
+}
+
+.navGroupBtn:active {
+  transform: translateY(0px);
+}
+
+.navGroupBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), 0 12px 22px rgba(17, 24, 39, 0.12);
+  border-color: rgba(193, 39, 45, 0.35);
+}
+
+.navGroupBtn.active {
+  background: rgba(193, 39, 45, 0.12);
+  border-color: rgba(193, 39, 45, 0.22);
+}
+
+.navCaret {
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+
+.navCaret.isOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.navDrop {
+  position: absolute;
+  top: calc(100% + 10px);
+  inset-inline-start: 0;
+  min-width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  z-index: 60;
+}
+
+/* ✅ Better hover for dropdown items */
+.navDropItem {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: start;
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 900;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.rtl .navDropItem {
+  padding-right: 18px;
+}
+
+.navDropItem:hover {
+  background: rgba(193, 39, 45, 0.08);
+  border-color: rgba(193, 39, 45, 0.18);
+  transform: translateY(-1px);
+}
+
+.navDropItem:active {
+  transform: translateY(0px);
+}
+
+.navDropItem:focus-visible {
+  outline: none;
+  border-color: rgba(193, 39, 45, 0.28);
+  box-shadow: var(--focus);
+}
+
+.navDropItem.active {
+  background: rgba(193, 39, 45, 0.12);
+  border-color: rgba(193, 39, 45, 0.22);
+}
+
+.navDropSep {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 4px;
+}
+
+@media (max-width: 980px) {
+  .navbar__inner--centered {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    height: auto;
+  }
+
+  .navCenter {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }

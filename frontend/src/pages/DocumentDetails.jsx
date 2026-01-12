@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useContext } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api, { API_BASE_URL } from "../api.js";
-import { AuthContext } from "../auth/AuthContext.jsx";
+import { AuthContext } from "../context/AuthContext.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 function StatusBadge({ status }) {

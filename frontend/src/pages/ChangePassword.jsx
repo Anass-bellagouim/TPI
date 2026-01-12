@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import api from "../api.js";
-import { AuthContext } from "../auth/AuthContext.jsx";
+import { AuthContext } from "../context/AuthContext.jsx";
 
 export default function ChangePassword() {
   const { user } = useContext(AuthContext);

@@ -679,7 +679,6 @@ export default function SearchDocuments() {
           <table className="table">
             <thead>
               <tr>
-                <th>#</th>
                 <th>الشعبة</th>
                 <th>نوع القضية</th>
                 <th>رقم الملف</th>
@@ -701,7 +700,6 @@ export default function SearchDocuments() {
               {!loading &&
                 rows.map((d) => (
                   <tr key={d.id}>
-                    <td>{d.id}</td>
                     <td>{d.division || "—"}</td>
                     <td>
                       <span style={{ fontWeight: 800 }}>{formatCaseType(d)}</span>

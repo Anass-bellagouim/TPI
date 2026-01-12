@@ -275,7 +275,7 @@ export default function JudgesAdmin() {
                 onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
                 disabled={saving}
               />
-              <span>مفعّل</span>
+              <span>مفعّلة</span>
             </label>
           </div>
 
@@ -317,7 +317,6 @@ export default function JudgesAdmin() {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 70 }}>#</th>
                 <th>الاسم</th>
                 <th style={{ width: 120 }}>الحالة</th>
                 <th style={{ width: 230 }}>Actions</th>
@@ -347,7 +346,6 @@ export default function JudgesAdmin() {
 
                   return (
                     <tr key={r.id}>
-                      <td>{r.id}</td>
 
                       <td>
                         {isEditing ? (

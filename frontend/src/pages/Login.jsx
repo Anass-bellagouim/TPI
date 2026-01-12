@@ -1,10 +1,9 @@
 import React, { useContext, useState } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
-import { AuthContext } from "../auth/AuthContext.jsx";
+import { useNavigate, Link } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext.jsx"; // ✅ هنا هو الإصلاح
 
 export default function Login() {
   const nav = useNavigate();
-  const location = useLocation();
   const auth = useContext(AuthContext);
 
   const [identifier, setIdentifier] = useState("");
@@ -12,16 +11,18 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const from = location.state?.from?.pathname || "/search";
-
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
     setLoading(true);
 
     try {
-      await auth.login({ identifier, password });
-      nav(from, { replace: true });
+      const { user } = await auth.login({ identifier, password });
+
+      const role = String(user?.role || "").toLowerCase();
+      const to = role === "admin" ? "/dashboard" : "/search";
+
+      nav(to, { replace: true });
     } catch (ex) {
       const msg =
         ex?.response?.data?.message ||

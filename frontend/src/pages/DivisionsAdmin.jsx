@@ -324,7 +324,6 @@ export default function DivisionsAdmin() {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 60 }}>#</th>
                 <th>الشعبة</th>
                 <th style={{ width: 120 }}>الحالة</th>
                 <th style={{ width: 280 }}>Actions</th>
@@ -354,7 +353,6 @@ export default function DivisionsAdmin() {
 
                   return (
                     <tr key={r.id}>
-                      <td>{r.id}</td>
 
                       <td>
                         {isEditing ? (
