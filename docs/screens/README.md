@@ -146,6 +146,8 @@ php artisan migrate --seed
 
 php artisan storage:link
 
+php artisan queue:work
+
 php artisan serve --host=0.0.0.0 --port=8000
 
 cd frontend
