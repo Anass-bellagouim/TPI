@@ -1,193 +1,265 @@
 # TPI — Tribunal PDF Indexing Application
 
-TPI est une application web développée pour la gestion, l’indexation
-et la recherche de documents judiciaires au format PDF.
-Elle permet aux utilisateurs d’un tribunal de centraliser les documents,
-de les rechercher facilement et de gérer les accès selon les rôles.
+TPI est une application web conçue pour aider un **tribunal** à gérer, indexer et rechercher des documents judiciaires au format **PDF**.
+Elle permet la centralisation des documents, le suivi de leur statut d’extraction et une gestion fine des accès selon les **rôles utilisateurs**.
 
 ---
 
-## 📌 Contexte du projet
+## 📌 Contexte du projet (Stage)
 
 Ce projet a été réalisé dans le cadre d’un **stage** au sein d’un tribunal.
-Il couvre l’ensemble du cycle de développement d’une application :
-analyse, conception, développement, tests et documentation.
+Il couvre l’ensemble du cycle de développement logiciel :
 
-La gestion du projet a été assurée à l’aide de **Jira (Scrum & Kanban)**,
-avec une planification globale réalisée via un **diagramme de Gantt**.
+* Analyse fonctionnelle et recueil des besoins
+* Modélisation (UML + Merise / MCD)
+* Conception UI/UX (Figma)
+* Développement Backend (Laravel API)
+* Développement Frontend (React + Vite)
+* Tests fonctionnels et corrections de bugs
+* Gestion de projet avec **Jira (Scrum & Kanban)** et planification via **diagramme de Gantt**
 
 ---
 
-## 🧱 Technologies utilisées
+## ✨ Fonctionnalités principales
 
-### Backend
-- Laravel (API REST)
-- Authentification par token (Sanctum)
-- MySQL
-- Stockage local des fichiers PDF
+### 🔐 Authentification & Sécurité
 
-### Frontend
-- React.js + Vite
-- React Router
-- Axios
-- Context API (AuthContext)
+* Connexion / Déconnexion
+* Consultation du profil (Me)
+* Changement de mot de passe
+* Mot de passe oublié / Réinitialisation
+* Authentification par **Bearer Token (Laravel Sanctum)**
+
+### 📄 Gestion des documents PDF
+
+* Importation de documents PDF
+* Stockage des fichiers et métadonnées
+* Indexation du contenu textuel
+* Suivi du statut d’extraction :
+
+  * `pending`
+  * `processing`
+  * `done`
+  * `failed`
+* Recherche multicritères
+* Consultation des détails d’un document
+* Téléchargement des fichiers PDF
+
+### 🗂️ Référentiels (Lookups)
+
+* Divisions
+* Types d’affaires
+* Juges
+
+### 👥 Gestion administrative
+
+* Gestion des employés (CRUD utilisateurs standards)
+* Gestion des divisions, types d’affaires et juges
+* Tableau de bord avec indicateurs (si activé)
 
 ---
 
 ## 👥 Rôles et permissions
 
 ### Utilisateur
-- Authentification
-- Recherche de documents
-- Consultation des détails
-- Téléchargement de documents PDF
-- Consultation des référentiels (divisions, types d’affaires, juges)
+
+* Authentification
+* Import et recherche de documents
+* Consultation des détails
+* Téléchargement de PDF
+* Consultation des référentiels
 
 ### Administrateur
-- Toutes les permissions utilisateur
-- Gestion des employés
-- Gestion des divisions
-- Gestion des types d’affaires
-- Gestion des juges
+
+* Toutes les permissions utilisateur
+* Gestion des employés
+* Gestion des divisions
+* Gestion des types d’affaires
+* Gestion des juges
+* Accès au tableau de bord
 
 ### Super Administrateur
-- Toutes les permissions administrateur
-- Activation / désactivation des comptes
+
+* Toutes les permissions administrateur
+* Activation / désactivation des comptes
+* Restrictions :
+
+  * Un administrateur ne peut pas se désactiver lui-même
+  * Un administrateur ne peut pas désactiver un Super Admin
 
 ---
 
-## ✨ Fonctionnalités principales
+## 🧱 Technologies utilisées
 
-- Authentification sécurisée
-- Gestion des documents PDF
-- Recherche multicritères
-- Suivi du statut des documents
-- Gestion des utilisateurs et référentiels
-- Interface simple et intuitive
+### Backend
+
+* Laravel (API REST)
+* Laravel Sanctum (Personal Access Tokens)
+* MySQL
+* Stockage local des fichiers PDF
+
+### Frontend
+
+* React.js + Vite
+* React Router
+* Axios
+* Context API (AuthContext)
+* Guards de routes (RequireAuth / RequireAdmin)
 
 ---
 
-## 📄 Pages de l’application (avec captures d’écran)
+## 🗃️ Base de données (MySQL)
 
-### 🔐 Page de connexion
-Permet aux utilisateurs de s’authentifier pour accéder à l’application.
+### Tables principales
 
-![Login](docs/screens/login.png)
+* `users`
+* `documents`
+* `divisions`
+* `case_types`
+* `judges`
+* `personal_access_tokens` (Sanctum)
+
+### Table `documents` (champs clés)
+
+* `file_path`
+* `original_filename`
+* `content_text`
+* `status`
+* `extract_status` (pending / processing / done / failed)
+* `extract_error`
 
 ---
+
+## 📄 Pages de l’application
+
+### 🔐 Connexion
+
+Authentification des utilisateurs.
 
 ### 🔑 Mot de passe oublié
-Permet à l’utilisateur de demander la réinitialisation de son mot de passe.
 
-![Forgot Password](docs/screens/forgot-password.png)
-
----
+Demande de réinitialisation du mot de passe.
 
 ### 📊 Tableau de bord
-Affiche une vue globale de l’application et un accès rapide aux fonctionnalités.
 
-![Dashboard](docs/screens/dashboard.png)
+Vue globale et accès rapide aux fonctionnalités.
 
----
+### 🔎 Recherche de documents
 
-### 🔎 Recherche des documents
-Permet de rechercher les documents selon différents critères.
-
-![Search Documents](docs/screens/documents-search.png)
-
----
+Recherche multicritères dans les documents indexés.
 
 ### 📄 Détails d’un document
-Affiche les informations détaillées d’un document avec possibilité de téléchargement.
 
-![Document Details](docs/screens/document-details.png)
+Informations complètes avec option de téléchargement.
 
----
+### ⬆️ Import de document
 
-### ⬆️ Ajout d’un document
-Permet l’importation de documents PDF dans le système.
-
-![Upload Document](docs/screens/document-upload.png)
-
----
+Ajout de documents PDF au système.
 
 ### 👥 Gestion des employés
-Interface réservée à l’administrateur pour gérer les comptes utilisateurs.
 
-![Employees](docs/screens/admin-employees.png)
-
----
-
-### ➕ Ajout d’un employé
-Permet à l’administrateur d’ajouter un nouvel employé.
-
-![Add Employee](docs/screens/add-employees.png)
-
----
+Gestion des comptes utilisateurs (Admin).
 
 ### 🏢 Gestion des divisions
-Gestion des divisions judiciaires.
 
-![Divisions](docs/screens/admin-divisions.png)
-
----
+Administration des divisions judiciaires.
 
 ### ⚖️ Gestion des types d’affaires
-Gestion des types de dossiers judiciaires.
 
-![Case Types](docs/screens/admin-case-types.png)
-
----
+Administration des types de dossiers.
 
 ### 👨‍⚖️ Gestion des juges
-Gestion des juges du tribunal.
 
-![Judges](docs/screens/admin-judges.png)
+Administration des juges du tribunal.
 
 ---
 
 ## 📅 Gestion du projet
 
-Le projet a été planifié sur une durée de **30 jours**, répartis en trois sprints :
+Le projet s’est déroulé sur **30 jours**, répartis en trois sprints :
 
-- **Sprint 1 : Analyse & Conception**
-  - Analyse fonctionnelle
-  - Diagrammes UML
-  - Modélisation des données (Merise)
-  - Maquettes UI/UX (Figma)
+### Sprint 1 – Analyse & Conception
 
-- **Sprint 2 : Développement**
-  - Backend (Laravel)
-  - Frontend (React)
-  - Authentification et gestion des documents
+* Analyse fonctionnelle
+* Diagrammes UML
+* Modélisation Merise (MCD)
+* Maquettes UI/UX (Figma)
 
-- **Sprint 3 : Tests & Documentation**
-  - Tests fonctionnels
-  - Corrections
-  - Rédaction du rapport
-  - Préparation de la soutenance
+### Sprint 2 – Développement
+
+* Backend (Laravel API)
+* Frontend (React)
+* Authentification et gestion des documents
+
+### Sprint 3 – Tests & Documentation
+
+* Tests fonctionnels
+* Corrections
+* Rédaction du rapport
+* Préparation de la soutenance
 
 ---
 
-## 📌 Diagrammes réalisés
+## 📐 Diagrammes réalisés
 
-- Diagramme de cas d’utilisation
-- Diagramme de classes
-- Diagrammes de séquence
-- Diagramme d’état des documents
-- Diagramme d’activité
-- MCD (Merise)
+* Diagramme de cas d’utilisation
+* Diagramme de classes
+* Diagrammes de séquence
+* Diagramme d’état des documents
+* Diagramme d’activité
+* MCD (Merise)
+
+---
+
+## ⚙️ Installation et configuration (Local)
+
+### Prérequis
+
+* PHP 8.x
+* Composer
+* Node.js 18+
+* MySQL
+* Git
+
+### Backend (Laravel)
+
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+
+php artisan migrate --seed
+php artisan storage:link
+php artisan queue:work
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+### Frontend (React)
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host
+```
+
+Variable d’environnement :
+
+```
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
 
 ---
 
 ## 📝 Conclusion
 
-Cette application permet une gestion efficace et sécurisée des documents
-judiciaires tout en facilitant le travail quotidien des utilisateurs.
-Le projet a été mené en respectant une méthodologie agile et une
-organisation structurée du travail.
+TPI est une application complète et sécurisée permettant une gestion efficace des documents judiciaires.
+Elle améliore l’organisation interne du tribunal, facilite la recherche documentaire et applique une gestion rigoureuse des accès utilisateurs.
+
+Le projet a été mené selon une **méthodologie agile**, avec une structuration claire du travail et une séparation nette entre backend et frontend.
 
 ---
 
 ## 📜 Licence
-Projet réalisé dans un cadre académique (stage).
+
+Projet réalisé dans un **cadre académique (stage)**.
