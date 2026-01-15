@@ -417,14 +417,14 @@ img { max-width: 100%; }
   background: var(--surface-2);
 }
 .hint--ok {
-  border-color: rgba(0, 98, 51, 0.35);
+  border-color: rgba(0, 98, 8, 0.35);
   background: var(--success-soft);
-  color: var(--morocco-green-2);
+  color: var(--morocco-red);
 }
 .hint--bad {
-  border-color: rgba(193, 39, 45, 0.35);
+  border-color: rgba(39, 193, 47, 0.35);
   background: var(--primary-soft);
-  color: #7a271a;
+  color: var(--success);
 }
 
 /* --------- Buttons --------- */
@@ -451,7 +451,7 @@ img { max-width: 100%; }
 .btnPrimary {
   background: linear-gradient(180deg, var(--primary), var(--primary-2));
   color: #fff;
-  box-shadow: 0 12px 20px rgba(193, 39, 45, 0.20);
+  box-shadow: 0 12px 20px rgba(39, 193, 60, 0.2);
 }
 .btnPrimary:hover { filter: brightness(0.96); text-decoration: none; }
 .btnPrimary:disabled { box-shadow: none; }
