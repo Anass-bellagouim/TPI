@@ -1,6 +1,8 @@
-# TPI — Tribunal PDF Indexing Application
+# TPI — Tribunal de Première Instance (PDF Indexing Application)
 
-TPI est une application web conçue pour aider un **tribunal** à gérer, indexer et rechercher des documents judiciaires au format **PDF**.  
+**TPI** signifie **Tribunal de Première Instance**.
+
+TPI est une application web conçue pour aider un **Tribunal de Première Instance** à gérer, indexer et rechercher des documents judiciaires au format **PDF**.  
 Elle permet la centralisation des documents, le suivi de leur statut d’extraction et une gestion fine des accès selon les **rôles utilisateurs**.
 
 ---
@@ -119,6 +121,8 @@ Il couvre l’ensemble du cycle de développement logiciel :
 
 ## 📄 Pages de l’application (captures d’écran)
 
+> ✅ Assurez-vous que les images existent dans: `./docs/screens/`
+
 ### 🔐 Page de connexion
 Permet aux utilisateurs de s’authentifier pour accéder à l’application.
 
@@ -231,14 +235,18 @@ Le projet s’est déroulé sur **30 jours**, répartis en trois sprints :
 
 ## ⚙️ Installation et configuration (Local)
 
-### Prérequis
+### ✅ Prérequis
 - PHP 8.x
 - Composer
 - Node.js 18+
 - MySQL
 - Git
 
-### Backend (Laravel)
+---
+
+## 1) Backend (Laravel)
+
+### Install
 ```bash
 cd backend
 composer install
@@ -249,3 +257,9 @@ php artisan migrate --seed
 php artisan storage:link
 php artisan queue:work
 php artisan serve --host=0.0.0.0 --port=8000
+
+cd frontend
+npm install
+npm run dev -- --host
+
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
