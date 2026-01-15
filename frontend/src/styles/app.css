@@ -344,6 +344,7 @@ iframe { background: #fff; }
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   padding: 8px;
+  z-index: 80;
 }
 
 .menuTitle { padding: 6px 10px; font-size: 12px; color: var(--muted); font-weight: 950; }
@@ -373,7 +374,7 @@ iframe { background: #fff; }
 
 /* Active state in menu */
 .menuItem.active {
-  background: rgba(193, 39, 45, 0.10);
+  background: rgba(39, 193, 60, 0.1);
   font-weight: 900;
   border-radius: 10px;
   position: relative;
@@ -410,7 +411,7 @@ iframe { background: #fff; }
 
 .navGroup { position: relative; }
 
-/* Ensure buttons receive hover (no overlay eating events) */
+/* Ensure buttons receive hover */
 .navGroupBtn,
 .navDropItem {
   pointer-events: auto;
@@ -464,7 +465,6 @@ iframe { background: #fff; }
   color: var(--muted);
   transition: transform 0.12s ease;
 }
-
 .navCaret.isOpen { transform: rotate(180deg); }
 
 /* Dropdown */
@@ -519,17 +519,13 @@ iframe { background: #fff; }
 
 @media (max-width: 980px) {
   .navbar__inner--centered {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: 10px;
     padding-top: 10px;
     padding-bottom: 10px;
     height: auto;
   }
-
-  .navCenter {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
+  .brand__titles p { display: none; }
 }
 
 /* =========================================================
@@ -1000,201 +996,208 @@ iframe { background: #fff; }
   .authVisual img { width: 60%; }
 }
 
-/* -------------------------
-   12.3) ADD DOCUMENT PAGE
-   ------------------------- */
-.addDocTop {
-  display: grid;
-  gap: var(--s-3);
-  align-items: stretch;
-}
+/* =========================================================
+   13) RESPONSIVE MOBILE DRAWER MENU (Pro)
+   ========================================================= */
 
-/* desktop: left PDF + right inputs */
-.addDocTop--pdfLeft {
-  grid-template-columns: 0.95fr 1.25fr;
-  margin-top: 30px;
-}
+/* Burger: hidden on desktop */
+.burgerBtn { display: none; }
 
-/* ensure PDF visually LEFT */
-.addDocTop--pdfLeft .pdfBox { grid-column: 1; }
-.addDocTop--pdfLeft .addDocInputs { grid-column: 2; }
-
+/* On mobile: hide center nav + user menu, show burger */
 @media (max-width: 980px) {
-  .addDocTop--pdfLeft { grid-template-columns: 1fr; }
-  .addDocTop--pdfLeft .pdfBox,
-  .addDocTop--pdfLeft .addDocInputs { grid-column: auto; }
+  .navCenter { display: none !important; }
+  .userBox { display: none !important; }
+  .burgerBtn { display: grid !important; }
 }
 
-/* PDF box */
-.pdfBox__title {
-  font-weight: 950;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-.pdfDrop {
-  display: block;
-  border: 1px dashed var(--border-2);
-  background: var(--surface-2);
-  border-radius: var(--r-lg);
-  padding: 14px;
-  cursor: pointer;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, background 0.12s ease;
-  min-height: 280px;
-}
-
-.pdfDrop:hover {
-  border-color: rgba(39, 193, 78, 0.35);
-  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.08);
-}
-
-.pdfDrop:active { transform: translateY(1px); }
-
-.pdfDrop.is-picked {
-  border-style: solid;
-  border-color: rgba(0, 98, 51, 0.25);
-  background: rgba(0, 98, 51, 0.06);
-}
-
-.pdfInput { display: none; }
-
-.pdfDrop__empty,
-.pdfDrop__picked {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  gap: 12px;
-}
-
-/* React icon */
-.pdfIcon {
-  width: 86px;
-  height: 86px;
-  display: grid;
-  place-items: center;
-  border-radius: 22px;
-  border: 1px solid rgba(39, 193, 52, 0.18);
-  background: linear-gradient(180deg, rgba(39, 193, 60, 0.12), rgba(0, 98, 51, 0.08));
-  color: var(--primary);
-}
-
-.reactMark { display: block; filter: drop-shadow(0 10px 18px rgba(17, 24, 39, 0.10)); }
-
-.pdfDrop__big { font-weight: 950; font-size: 16px; }
-.pdfDrop__small { font-size: 13px; color: var(--muted); }
-
-.pdfDrop__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 9px 14px;
-  font-weight: 950;
-  font-size: 13px;
-  border: 1px solid var(--border);
-  background: #fff;
-  box-shadow: var(--shadow-sm);
-}
-
-/* Picked state */
-.pdfDrop__picked {
-  grid-template-columns: auto 1fr auto;
-  text-align: start;
-  align-items: center;
-  gap: 12px;
-}
-
-.pdfPicked__icon {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 98, 51, 0.22);
-  background: rgba(0, 98, 51, 0.10);
-  color: var(--morocco-green);
-}
-
-.pdfPicked__icon svg{
-  color: var(--morocco-red);
-}
-
-.pdfPicked__meta { overflow: hidden; }
-
-.pdfPicked__name {
-  font-weight: 950;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pdfPicked__hint {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.pdfPicked__clear {
+/* Burger button */
+.burgerBtn {
   appearance: none;
-  border: 1px solid rgba(39, 193, 52, 0.25);
-  background: rgba(39, 193, 98, 0.1);
-  color: var(--primary);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 950;
+  width: 44px;
+  height: 44px;
+  place-items: center;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.08s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.burgerBtn:hover {
+  border-color: var(--border-2);
+  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.10);
+  background: rgba(17, 24, 39, 0.02);
+}
+.burgerBtn:active { transform: translateY(1px); }
+.burgerBtn:focus-visible { outline: none; box-shadow: var(--focus), var(--shadow-sm); }
+
+.burgerIcon { width: 18px; height: 14px; position: relative; }
+.burgerIcon span {
+  position: absolute; left: 0; right: 0;
+  height: 2px; border-radius: 999px;
+  background: var(--text);
+  transition: transform 0.15s ease, top 0.15s ease, opacity 0.15s ease;
+}
+.burgerIcon span:nth-child(1) { top: 0; }
+.burgerIcon span:nth-child(2) { top: 6px; opacity: 0.9; }
+.burgerIcon span:nth-child(3) { top: 12px; }
+.burgerBtn.isOpen .burgerIcon span:nth-child(1) { top: 6px; transform: rotate(45deg); }
+.burgerBtn.isOpen .burgerIcon span:nth-child(2) { opacity: 0; }
+.burgerBtn.isOpen .burgerIcon span:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+
+/* Overlay (IMPORTANT FIX: visibility + pointer-events) */
+.navOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.42);
+  backdrop-filter: blur(4px);
+  z-index: 98;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+}
+.navOverlay.isOpen {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
 }
 
-.pdfPicked__clear:hover { background: rgba(39, 193, 78, 0.14); }
+/* Drawer (IMPORTANT FIX: visibility + pointer-events) */
+.navDrawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: min(92vw, 380px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(251,250,248,0.96));
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  z-index: 99;
 
-.pdfPicked__clear:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+  transform: translateX(110%);
+  transition: transform 0.18s ease;
 
-/* -------------------------
-   12.4) DASHBOARD PAGE
-   ------------------------- */
-.dashKpis {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--s-3);
-}
-
-@media (max-width: 980px) {
-  .dashKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 560px) {
-  .dashKpis { grid-template-columns: 1fr; }
-}
-
-.kpiCard { padding: 16px; }
-
-.kpiTop {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+
+  visibility: hidden;
+  pointer-events: none;
+}
+.navDrawer.isOpen {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Drawer header */
+.navDrawer__head {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.kpiTitle {
-  font-weight: 950;
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 2px;
+.drawerUser { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.drawerUser__avatar {
+  width: 44px; height: 44px; border-radius: 999px;
+  display: grid; place-items: center; font-weight: 950;
+  background: linear-gradient(180deg, rgba(39, 193, 65, 0.14), rgba(0,98,51,0.10));
+  border: 1px solid rgba(39, 193, 60, 0.18);
+  color: var(--primary);
+}
+.drawerUser__meta { min-width: 0; }
+.drawerUser__name {
+  font-weight: 950; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.drawerUser__role {
+  margin-top: 5px; font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.kpiValue {
-  font-size: 28px;
-  font-weight: 950;
-  margin-top: 10px;
-  letter-spacing: 0.2px;
+.drawerClose {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.drawerClose:hover { border-color: var(--border-2); }
+
+/* Drawer body */
+.navDrawer__body { padding: 12px; overflow: auto; }
+
+/* Groups */
+.drawerGroup {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 10px;
 }
 
-.kpiSub {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 13px;
+.drawerGroupBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-weight: 950;
+  text-align: start;
+}
+.drawerGroupBtn:hover { background: rgba(17, 24, 39, 0.02); }
+.drawerGroupBtn:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.drawerGroupItems {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+/* Drawer items */
+.drawerItem {
+  width: 100%;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  border-radius: 14px;
+  padding: 11px 12px;
+  text-align: start;
+  font-weight: 900;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+}
+.drawerItem:hover {
+  background: rgba(39, 193, 85, 0.08);
+  border-color: rgba(39, 193, 65, 0.18);
+  transform: translateY(-1px);
+}
+.drawerItem:active { transform: translateY(0px); }
+
+.drawerItem.active {
+  background: rgba(39, 193, 65, 0.12);
+  border-color: rgba(39, 193, 85, 0.22);
+}
+
+.drawerItem.danger { color: var(--danger); }
+
+.drawerSep { height: 1px; background: var(--border); margin: 12px 4px; }
+
+/* Touch targets */
+@media (hover: none) {
+  .burgerBtn, .drawerItem, .drawerGroupBtn, .drawerClose { min-height: 44px; }
 }

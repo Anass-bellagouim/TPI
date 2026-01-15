@@ -54,9 +54,9 @@ export default function AppShell() {
   }
 
   // -----------------------------
-  // ✅ Center nav dropdowns (CLICK only)
+  // ✅ Desktop center nav dropdowns
   // -----------------------------
-  const [openGroup, setOpenGroup] = useState(""); // "docs" | "employees" | "admin" | ""
+  const [openGroup, setOpenGroup] = useState("");
   const centerRef = useRef(null);
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function AppShell() {
   }, []);
 
   // -----------------------------
-  // ✅ User menu (CLICK only ✅)
+  // ✅ Desktop user menu
   // -----------------------------
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef(null);
@@ -106,6 +106,52 @@ export default function AppShell() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // -----------------------------
+  // ✅ MOBILE DRAWER MENU (كلشي فيه)
+  // -----------------------------
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerGroup, setDrawerGroup] = useState(""); // docs | employees | admin | account | ""
+  const drawerRef = useRef(null);
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setDrawerGroup("");
+  };
+
+  // Fix: navigate first then close after tick
+  const goFromDrawer = (to) => {
+    nav(to);
+    requestAnimationFrame(() => {
+      setTimeout(() => closeDrawer(), 30);
+    });
+  };
+
+  // close drawer on route change (extra safety)
+  useEffect(() => {
+    if (!drawerOpen) return;
+    requestAnimationFrame(() => setTimeout(() => closeDrawer(), 30));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // ESC closes drawer too
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") closeDrawer();
+    }
+    if (drawerOpen) document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  // Prevent scroll when drawer open
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [drawerOpen]);
+
   return (
     <div className="shell rtl">
       <header className="navbar">
@@ -127,8 +173,10 @@ export default function AppShell() {
               <p>نظام إدارة الوثائق</p>
             </div>
           </div>
+          <div>
 
-          {/* ✅ Center nav */}
+          
+          {/* ✅ Center nav (Desktop only via CSS) */}
           {user && (
             <nav className="navCenter" ref={centerRef} aria-label="Main navigation">
               {/* الوثائق */}
@@ -164,7 +212,8 @@ export default function AppShell() {
                     </button>
                   </div>
                 )}
-              </div>
+
+            </div>
 
               {/* الموظفون */}
               {isAdmin && (
@@ -233,30 +282,15 @@ export default function AppShell() {
 
                       <div className="navDropSep" />
 
-                      <button
-                        className={`navDropItem ${isActive("/divisions") ? "active" : ""}`}
-                        type="button"
-                        onClick={() => go("/divisions")}
-                        role="menuitem"
-                      >
+                      <button className={`navDropItem ${isActive("/divisions") ? "active" : ""}`} type="button" onClick={() => go("/divisions")}>
                         إدارة الشعب
                       </button>
 
-                      <button
-                        className={`navDropItem ${isActive("/case-types") ? "active" : ""}`}
-                        type="button"
-                        onClick={() => go("/case-types")}
-                        role="menuitem"
-                      >
+                      <button className={`navDropItem ${isActive("/case-types") ? "active" : ""}`} type="button" onClick={() => go("/case-types")}>
                         إدارة القضايا
                       </button>
 
-                      <button
-                        className={`navDropItem ${isActive("/judges") ? "active" : ""}`}
-                        type="button"
-                        onClick={() => go("/judges")}
-                        role="menuitem"
-                      >
+                      <button className={`navDropItem ${isActive("/judges") ? "active" : ""}`} type="button" onClick={() => go("/judges")}>
                         إدارة القضاة
                       </button>
                     </div>
@@ -265,8 +299,9 @@ export default function AppShell() {
               )}
             </nav>
           )}
+        </div>
 
-          {/* ✅ Left: User menu (CLICK only ✅) */}
+          {/* ✅ Left: Desktop user menu (hidden on mobile via CSS) */}
           <div className="userBox" ref={userRef}>
             <button
               className="userBtn"
@@ -307,8 +342,172 @@ export default function AppShell() {
               </div>
             )}
           </div>
+
+          {/* ✅ Burger (mobile only via CSS) */}
+          {user && (
+            <button
+              type="button"
+              className={"burgerBtn" + (drawerOpen ? " isOpen" : "")}
+              aria-label="فتح القائمة"
+              aria-expanded={drawerOpen ? "true" : "false"}
+              onClick={() => setDrawerOpen((v) => !v)}
+            >
+              <span className="burgerIcon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
+          )}
         </div>
       </header>
+
+      {/* ✅ Overlay (mobile drawer) */}
+      <div className={"navOverlay" + (drawerOpen ? " isOpen" : "")} onClick={closeDrawer} />
+
+      {/* ✅ Drawer */}
+      <aside
+        className={"navDrawer" + (drawerOpen ? " isOpen" : "")}
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="القائمة"
+      >
+        <div className="navDrawer__head">
+          <div className="drawerUser">
+            <div className="drawerUser__avatar">{String(displayName || "U").slice(0, 1)}</div>
+            <div className="drawerUser__meta">
+              <div className="drawerUser__name">{displayName}</div>
+              <div className="drawerUser__role">{user?.role || "—"}</div>
+            </div>
+          </div>
+
+          <button className="drawerClose" type="button" onClick={closeDrawer} aria-label="إغلاق">
+            ✕
+          </button>
+        </div>
+
+        <div className="navDrawer__body">
+          {/* Account group: profile/settings/change-pass/logout */}
+          <div className="drawerGroup">
+            <button
+              type="button"
+              className="drawerGroupBtn"
+              onClick={() => setDrawerGroup((v) => (v === "account" ? "" : "account"))}
+              aria-expanded={drawerGroup === "account" ? "true" : "false"}
+            >
+              <span>الحساب</span>
+              <span className="drawerCaret">{drawerGroup === "account" ? "▴" : "▾"}</span>
+            </button>
+
+            {drawerGroup === "account" && (
+              <div className="drawerGroupItems">
+                <button
+                  type="button"
+                  className={"drawerItem" + (isActive("/change-password", { exact: true }) ? " active" : "")}
+                  onClick={() => goFromDrawer("/change-password")}
+                >
+                  تغيير كلمة المرور
+                </button>
+
+                <button type="button" className="drawerItem danger" onClick={async () => { await onLogout(); closeDrawer(); }}>
+                  تسجيل الخروج
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="drawerSep" />
+
+          {/* Docs */}
+          <div className="drawerGroup">
+            <button
+              type="button"
+              className="drawerGroupBtn"
+              onClick={() => setDrawerGroup((v) => (v === "docs" ? "" : "docs"))}
+              aria-expanded={drawerGroup === "docs" ? "true" : "false"}
+            >
+              <span>الوثائق</span>
+              <span className="drawerCaret">{drawerGroup === "docs" ? "▴" : "▾"}</span>
+            </button>
+
+            {drawerGroup === "docs" && (
+              <div className="drawerGroupItems">
+                <button type="button" className={"drawerItem" + (isActive("/search", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/search")}>
+                  البحث عن وثيقة
+                </button>
+
+                <button type="button" className={"drawerItem" + (isActive("/add", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/add")}>
+                  إضافة وثيقة
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Employees */}
+          {isAdmin && (
+            <div className="drawerGroup">
+              <button
+                type="button"
+                className="drawerGroupBtn"
+                onClick={() => setDrawerGroup((v) => (v === "employees" ? "" : "employees"))}
+                aria-expanded={drawerGroup === "employees" ? "true" : "false"}
+              >
+                <span>الموظفون</span>
+                <span className="drawerCaret">{drawerGroup === "employees" ? "▴" : "▾"}</span>
+              </button>
+
+              {drawerGroup === "employees" && (
+                <div className="drawerGroupItems">
+                  <button type="button" className={"drawerItem" + (isActive("/employees", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/employees")}>
+                    البحث عن موظف
+                  </button>
+
+                  <button type="button" className={"drawerItem" + (isActive("/employees/add", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/employees/add")}>
+                    إضافة موظف
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Admin */}
+          {isAdmin && (
+            <div className="drawerGroup">
+              <button
+                type="button"
+                className="drawerGroupBtn"
+                onClick={() => setDrawerGroup((v) => (v === "admin" ? "" : "admin"))}
+                aria-expanded={drawerGroup === "admin" ? "true" : "false"}
+              >
+                <span>لوحة الإدارة</span>
+                <span className="drawerCaret">{drawerGroup === "admin" ? "▴" : "▾"}</span>
+              </button>
+
+              {drawerGroup === "admin" && (
+                <div className="drawerGroupItems">
+                  <button type="button" className={"drawerItem" + (isActive("/dashboard", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/dashboard")}>
+                    لوحة القيادة
+                  </button>
+
+                  <button type="button" className={"drawerItem" + (isActive("/divisions") ? " active" : "")} onClick={() => goFromDrawer("/divisions")}>
+                    إدارة الشعب
+                  </button>
+
+                  <button type="button" className={"drawerItem" + (isActive("/case-types") ? " active" : "")} onClick={() => goFromDrawer("/case-types")}>
+                    إدارة القضايا
+                  </button>
+
+                  <button type="button" className={"drawerItem" + (isActive("/judges") ? " active" : "")} onClick={() => goFromDrawer("/judges")}>
+                    إدارة القضاة
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </aside>
 
       <main className="container">
         <Outlet />
