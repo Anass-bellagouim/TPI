@@ -376,7 +376,7 @@ export default function CaseTypesAdmin() {
             <div className="label">الحالة</div>
             <label className="check">
               <input type="checkbox" checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} disabled={saving || !divisionId} />
-              <span>مفعّلة</span>
+              <span>Active</span>
             </label>
           </div>
 

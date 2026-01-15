@@ -6,10 +6,10 @@
 /* --------- Design tokens --------- */
 :root {
   /* Moroccan identity */
-  --morocco-red: #c1272d;        /* deep red */
-  --morocco-red-2: #9f1f24;      /* darker red */
-  --morocco-green: #006233;      /* Moroccan green */
-  --morocco-green-2: #004d28;
+  --morocco-red:  #00cf6b;        /* deep red */
+  --morocco-red-2:  #04ce6c;      /* darker red */
+  --morocco-green: #c1272d;      /* Moroccan green */
+  --morocco-green-2: #9f1f24;
 
   /* Surfaces */
   --bg: #f6f5f2;                 /* warm off-white */
@@ -559,13 +559,13 @@ img { max-width: 100%; }
 .pill--ok {
   border-color: rgba(0, 98, 51, 0.28);
   background: var(--success-soft);
-  color: var(--morocco-green-2);
+  color: var(--morocco-red-2);
 }
 
 .pill--bad {
   border-color: rgba(193, 39, 45, 0.28);
   background: var(--primary-soft);
-  color: #7a271a;
+  color: #2d7a1a;
 }
 
 .badge {
@@ -749,10 +749,11 @@ iframe { background: #fff; }
   overflow: hidden;
   background: linear-gradient(
     135deg,
-    #c1272d 0%,
-    #9b1c22 50%,
-    #006233 100%
+    #00ff84 0%,
+    #00964d 30%,
+    #e20209 70%
   );
+
   box-shadow: var(--shadow-lg);
   display: grid;
   place-items: center;

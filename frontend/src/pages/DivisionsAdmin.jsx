@@ -282,7 +282,7 @@ export default function DivisionsAdmin() {
                 onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
                 disabled={saving}
               />
-              <span>مفعّلة</span>
+              <span>Active</span>
             </label>
           </div>
 
