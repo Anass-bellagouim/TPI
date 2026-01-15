@@ -1,4 +1,4 @@
-# TPI — Tribunal de Première Instance (PDF Indexing Application)
+# TPI — Tribunal de Première Instance
 
 **TPI** signifie **Tribunal de Première Instance**.  
 TPI est une application web destinée à aider un **Tribunal de Première Instance** à gérer, centraliser, indexer et rechercher des documents judiciaires au format **PDF**.
