@@ -1,6 +1,7 @@
+// src/pages/Login.jsx
 import React, { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext.jsx"; // ✅ هنا هو الإصلاح
+import { AuthContext } from "../context/AuthContext.jsx";
 
 export default function Login() {
   const nav = useNavigate();
@@ -17,16 +18,22 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { user } = await auth.login({ identifier, password });
+      const ident = identifier.trim();
+      const pass = password.trim(); // ✅ كتحيد spaces اللي كتوقع بلا ما تحس
+
+      const { user } = await auth.login({ identifier: ident, password: pass });
 
       const role = String(user?.role || "").toLowerCase();
       const to = role === "admin" ? "/dashboard" : "/search";
 
       nav(to, { replace: true });
     } catch (ex) {
+      const status = ex?.response?.status;
       const msg =
         ex?.response?.data?.message ||
-        (ex?.response?.status === 401 ? "بيانات الدخول غير صحيحة" : "فشل تسجيل الدخول");
+        (status === 401 || status === 422
+          ? "بيانات الدخول غير صحيحة"
+          : "فشل تسجيل الدخول");
       setErr(msg);
     } finally {
       setLoading(false);
@@ -37,7 +44,8 @@ export default function Login() {
     <div className="authWrap">
       <div className="authLayout">
         <div className="authVisual">
-          <img src="img/Logo.png" alt="محكمة" />
+          {/* ✅ الصحيح فـ Vite: /img/Logo.png */}
+          <img src="/img/Logo.png" alt="محكمة" />
           <div className="authVisualOverlay">
             <h3>المحكمة الابتدائية</h3>
             <p>نظام تسيير الوثائق القضائية</p>
@@ -73,7 +81,11 @@ export default function Login() {
               />
             </div>
 
-            <button className="btn btnPrimary" type="submit" disabled={loading || auth?.isLoading}>
+            <button
+              className="btn btnPrimary"
+              type="submit"
+              disabled={loading || auth?.isLoading}
+            >
               {loading || auth?.isLoading ? "..." : "دخول"}
             </button>
 

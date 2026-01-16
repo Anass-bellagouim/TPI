@@ -1,3 +1,4 @@
+// src/pages/ResetPassword.jsx
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api.js";
@@ -6,8 +7,8 @@ export default function ResetPassword() {
   const nav = useNavigate();
   const [params] = useSearchParams();
 
-  const token = useMemo(() => params.get("token") || "", [params]);
-  const email = useMemo(() => params.get("email") || "", [params]);
+  const token = useMemo(() => (params.get("token") || "").trim(), [params]);
+  const email = useMemo(() => (params.get("email") || "").trim(), [params]);
 
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
@@ -16,12 +17,15 @@ export default function ResetPassword() {
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
+  const cleanPassword = password; // خليه كيف هو (ما نديروش trim أثناء الكتابة)
+  const cleanConfirmation = passwordConfirmation;
+
   const canSubmit =
     token &&
     email &&
-    password.length >= 6 &&
-    passwordConfirmation.length >= 6 &&
-    password === passwordConfirmation;
+    cleanPassword.length >= 8 &&
+    cleanConfirmation.length >= 8 &&
+    cleanPassword === cleanConfirmation;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -33,7 +37,16 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password !== passwordConfirmation) {
+    // ✅ نحيد غير المسافات فالبداية والنهاية وقت الإرسال
+    const p1 = cleanPassword.trim();
+    const p2 = cleanConfirmation.trim();
+
+    if (p1.length < 8) {
+      setErr("كلمة المرور خاصها تكون 8 أحرف أو أكثر");
+      return;
+    }
+
+    if (p1 !== p2) {
       setErr("كلمتا المرور غير متطابقتين");
       return;
     }
@@ -41,10 +54,10 @@ export default function ResetPassword() {
     setLoading(true);
     try {
       await api.post("/auth/reset-password", {
-        token,
-        email,
-        password,
-        password_confirmation: passwordConfirmation,
+        token: token.trim(),
+        email: email.trim(),
+        password: p1,
+        password_confirmation: p2,
       });
 
       setOk("تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.");
@@ -57,6 +70,8 @@ export default function ResetPassword() {
           ? "المعطيات غير صحيحة (تأكد من كلمة المرور أو صلاحية الرابط)"
           : status === 403
           ? "هذه العملية متاحة للإدارة فقط"
+          : status === 429
+          ? "يرجى الانتظار قبل إعادة المحاولة"
           : "حدث خطأ أثناء إعادة تعيين كلمة المرور");
       setErr(msg);
     } finally {
@@ -68,6 +83,15 @@ export default function ResetPassword() {
     <div className="authWrap">
       <div className="card authCard">
         <h2>إعادة تعيين كلمة المرور</h2>
+
+        <div className="help" style={{ marginBottom: 10, opacity: 0.9 }}>
+          <div>
+            <strong>البريد الإلكتروني:</strong> {email || "—"}
+          </div>
+          <div>
+            <strong>Token:</strong> {token ? `${token.slice(0, 12)}...` : "—"}
+          </div>
+        </div>
 
         {err && <div className="alert alertError">{err}</div>}
         {ok && <div className="alert alertSuccess">{ok}</div>}
@@ -82,7 +106,8 @@ export default function ResetPassword() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
+              placeholder="8 أحرف على الأقل"
             />
           </div>
 
@@ -95,11 +120,16 @@ export default function ResetPassword() {
               onChange={(e) => setPasswordConfirmation(e.target.value)}
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
+              placeholder="أعد كتابة كلمة المرور"
             />
           </div>
 
-          <button className="btn btnPrimary" type="submit" disabled={!canSubmit || loading}>
+          <button
+            className="btn btnPrimary"
+            type="submit"
+            disabled={!canSubmit || loading}
+          >
             {loading ? "..." : "تأكيد"}
           </button>
 

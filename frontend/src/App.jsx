@@ -26,8 +26,7 @@ import RequireAuth from "./auth/RequireAuth.jsx";
 import RequireAdmin from "./auth/RequireAdmin.jsx";
 
 function HomeRedirect() {
-  const ctx = useContext(AuthContext) || {};
-  const { user, isLoading, isAuthenticated } = ctx;
+  const { user, isAuthenticated, isLoading } = useContext(AuthContext) || {};
   const location = useLocation();
 
   const to = useMemo(() => {
@@ -36,71 +35,67 @@ function HomeRedirect() {
     return role === "admin" ? "/dashboard" : "/search";
   }, [isAuthenticated, user]);
 
-  if (isLoading) {
-    return (
-      <div className="container" style={{ padding: 24, textAlign: "center" }}>
-        جاري التحميل...
-      </div>
-    );
-  }
+  if (isLoading) return null;
 
   return <Navigate to={to} replace state={{ from: location.pathname }} />;
 }
 
 export default function App() {
   return (
-    <Routes>
-      {/* ✅ PUBLIC ROUTES (برا AuthProvider و AppShell) */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/reset-password/:token" element={<ResetPassword />} />
+    <AuthProvider>
+      <Routes>
+        {/* ===== PUBLIC ===== */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* ✅ باقي التطبيق محمي */}
-      <Route
-        path="/*"
-        element={
-          <AuthProvider>
-            <Routes>
-              <Route element={<AppShell />}>
-                <Route
-                  index
-                  element={
-                    <RequireAuth>
-                      <HomeRedirect />
-                    </RequireAuth>
-                  }
-                />
+        {/* ===== APP (AUTH) ===== */}
+        <Route element={<AppShell />}>
+          {/* أول دخول */}
+          <Route
+            index
+            element={
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            }
+          />
 
-                <Route element={<RequireAuth />}>
-                  <Route path="search" element={<SearchDocuments />} />
-                  <Route path="add" element={<AddDocument />} />
-                  <Route path="documents/:id" element={<DocumentDetails />} />
-                  <Route path="change-password" element={<ChangePassword />} />
+          <Route element={<RequireAuth />}>
+            {/* USER */}
+            <Route path="search" element={<SearchDocuments />} />
+            <Route path="add" element={<AddDocument />} />
+            <Route path="documents/:id" element={<DocumentDetails />} />
+            <Route path="change-password" element={<ChangePassword />} />
 
-                  <Route element={<RequireAdmin />}>
-                    <Route path="dashboard" element={<Dashboard />} />
+            {/* ADMIN */}
+            <Route element={<RequireAdmin />}>
+              <Route path="dashboard" element={<Dashboard />} />
 
-                    <Route path="employees" element={<Employees />} />
-                    <Route path="employees/add" element={<AddEmployee />} />
-                    <Route path="employees/:id" element={<EmployeeDetails />} />
+              <Route path="employees" element={<Employees />} />
+              <Route path="employees/add" element={<AddEmployee />} />
+              <Route path="employees/:id" element={<EmployeeDetails />} />
 
-                    <Route path="divisions" element={<DivisionsAdmin />} />
-                    <Route path="case-types" element={<CaseTypesAdmin />} />
-                    <Route path="judges" element={<JudgesAdmin />} />
-                  </Route>
-                </Route>
+              <Route path="divisions" element={<DivisionsAdmin />} />
+              <Route path="case-types" element={<CaseTypesAdmin />} />
+              <Route path="judges" element={<JudgesAdmin />} />
+            </Route>
+          </Route>
 
-                {/* fallback داخل AppShell */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </AuthProvider>
-        }
-      />
+          {/* fallback داخل AppShell */}
+          <Route
+            path="*"
+            element={
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            }
+          />
+        </Route>
 
-      {/* fallback عام */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        {/* fallback عام */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
