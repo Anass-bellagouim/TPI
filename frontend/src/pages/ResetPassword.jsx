@@ -17,14 +17,14 @@ export default function ResetPassword() {
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
-  const cleanPassword = password; // خليه كيف هو (ما نديروش trim أثناء الكتابة)
+  const cleanPassword = password; // ما نديروش trim أثناء الكتابة
   const cleanConfirmation = passwordConfirmation;
 
   const canSubmit =
     token &&
     email &&
-    cleanPassword.length >= 8 &&
-    cleanConfirmation.length >= 8 &&
+    cleanPassword.length >= 6 &&
+    cleanConfirmation.length >= 6 &&
     cleanPassword === cleanConfirmation;
 
   const submit = async (e) => {
@@ -41,8 +41,9 @@ export default function ResetPassword() {
     const p1 = cleanPassword.trim();
     const p2 = cleanConfirmation.trim();
 
-    if (p1.length < 8) {
-      setErr("كلمة المرور خاصها تكون 8 أحرف أو أكثر");
+    // ✅ MIN = 6 (بدل 8)
+    if (p1.length < 6) {
+      setErr("كلمة المرور خاصها تكون 6 أحرف أو أكثر");
       return;
     }
 
@@ -84,15 +85,6 @@ export default function ResetPassword() {
       <div className="card authCard">
         <h2>إعادة تعيين كلمة المرور</h2>
 
-        <div className="help" style={{ marginBottom: 10, opacity: 0.9 }}>
-          <div>
-            <strong>البريد الإلكتروني:</strong> {email || "—"}
-          </div>
-          <div>
-            <strong>Token:</strong> {token ? `${token.slice(0, 12)}...` : "—"}
-          </div>
-        </div>
-
         {err && <div className="alert alertError">{err}</div>}
         {ok && <div className="alert alertSuccess">{ok}</div>}
 
@@ -106,8 +98,8 @@ export default function ResetPassword() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               required
-              minLength={8}
-              placeholder="8 أحرف على الأقل"
+              minLength={6}
+              placeholder="كلمة المرور الجديدة"
             />
           </div>
 
@@ -120,16 +112,12 @@ export default function ResetPassword() {
               onChange={(e) => setPasswordConfirmation(e.target.value)}
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={6}
               placeholder="أعد كتابة كلمة المرور"
             />
           </div>
 
-          <button
-            className="btn btnPrimary"
-            type="submit"
-            disabled={!canSubmit || loading}
-          >
+          <button className="btn btnPrimary" type="submit" disabled={!canSubmit || loading}>
             {loading ? "..." : "تأكيد"}
           </button>
 

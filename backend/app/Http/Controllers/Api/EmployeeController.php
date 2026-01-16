@@ -261,7 +261,7 @@ class EmployeeController extends Controller
         }
 
         return response()->json([
-            'message' => 'تمت إعادة تعيين كلمة المرور إلى 123456 وتم سحب التوكنز القديمة.',
+            'message' => 'تمت إعادة تعيين كلمة المرور',
         ]);
     }
 

@@ -12,7 +12,7 @@ class ChangePasswordController extends Controller
     {
         $data = $request->validate([
             'current_password' => ['required', 'string'],
-            'new_password'     => ['required', 'string', 'min:8', 'max:255'],
+            'new_password'     => ['required', 'string', 'min:6', 'max:255'],
         ]);
 
         $user = $request->user();

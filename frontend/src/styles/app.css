@@ -756,8 +756,8 @@ iframe { background: #fff; }
 }
 
 .pill--bad {
-  border-color: rgba(193, 39, 45, 0.28);
-  background: var(--primary-soft);
+  border-color: rgba(255, 0, 8, 0.28);
+  background: rgba(255, 118, 122, 0.28);
   color: #7a1a1a;
 }
 

@@ -174,7 +174,7 @@ export default function EmployeeDetails() {
     try {
       setLoadingReset(true);
       const res = await api.patch(`/admin/employees/${id}/password`);
-      setInfo(res.data?.message || 'تمت إعادة تعيين كلمة المرور إلى "123456" وتم سحب الرموز القديمة بنجاح.');
+      setInfo(res.data?.message || 'تمت إعادة تعيين كلمة المرور وتم سحب الرموز القديمة بنجاح.');
       window.scrollTo({ top: 0, behavior: "smooth" });
       closeConfirm();
     } catch (e) {
@@ -226,7 +226,7 @@ export default function EmployeeDetails() {
         danger: true,
         title: 'إعادة تعيين كلمة المرور',
         message:
-          'هل أنت متأكد أنك تريد إعادة تعيين كلمة المرور إلى "123456"؟ سيتم إنهاء جميع الجلسات وسحب الرموز.',
+          'هل أنت متأكد أنك تريد إعادة تعيين كلمة المرور ؟ سيتم إنهاء جميع الجلسات وسحب الرموز.',
         confirmText: 'نعم، أعد التعيين',
         cancelText: "إلغاء",
         loading: loadingReset,

@@ -223,7 +223,7 @@ export default function AddEmployee() {
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                placeholder='إذا تركتها فارغة → الافتراضي "123456"'
+                placeholder='إذا تركتها فارغة → الافتراضي'
                 disabled={loading}
                 autoComplete="new-password"
               />
