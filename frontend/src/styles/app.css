@@ -7,21 +7,21 @@
    01) DESIGN TOKENS
    ========================================================= */
 :root {
-  /* Moroccan identity */
-  --morocco-red:  #068547;        /* deep red */
-  --morocco-red-2:#13884f;        /* darker red */
-  --morocco-green:#c1272d;        /* Moroccan green */
+  /* Moroccan identity (as provided) */
+  --morocco-red:  #068547;
+  --morocco-red-2:#13884f;
+  --morocco-green:#c1272d;
   --morocco-green-2:#9f1f24;
 
   /* Surfaces */
-  --bg: #f6f5f2;                 /* warm off-white */
+  --bg: #f6f5f2;
   --surface: #ffffff;
   --surface-2: #fbfaf8;
 
   /* Text */
-  --text: #111827;               /* gray-900 */
-  --muted: #6b7280;              /* gray-500 */
-  --muted-2: #9ca3af;            /* gray-400 */
+  --text: #111827;
+  --muted: #6b7280;
+  --muted-2: #9ca3af;
 
   /* Borders */
   --border: #ded9d2;
@@ -40,11 +40,11 @@
   --danger: #b42318;
   --danger-soft: rgba(180, 35, 24, 0.12);
 
-  --success: var(--warning);
-  --success-soft: rgba(0, 98, 51, 0.12);
-
   --warning: #08b54a;
   --warning-soft: rgba(181, 71, 8, 0.12);
+
+  --success: var(--warning);
+  --success-soft: rgba(0, 98, 51, 0.12);
 
   --info: #1f4c8f;
   --info-soft: rgba(31, 76, 143, 0.10);
@@ -71,7 +71,7 @@
   --shadow: 0 10px 22px rgba(17, 24, 39, 0.08);
   --shadow-lg: 0 18px 34px rgba(17, 24, 39, 0.12);
 
-  /* Focus ring (red) */
+  /* Focus ring */
   --focus: 0 0 0 3px rgba(39, 193, 72, 0.22);
 
   /* Layout */
@@ -100,7 +100,7 @@ body {
   isolation: isolate;
 }
 
-/* Moroccan ZLIG background with 50% opacity */
+/* Moroccan ZLIG background */
 body::before {
   content: "";
   position: fixed;
@@ -117,7 +117,7 @@ body::before {
   filter: saturate(1.05) contrast(1.02);
 }
 
-/* Soft overlay فوق الزليج باش المحتوى يبقى واضح */
+/* Soft overlay فوق الزليج */
 body::after {
   content: "";
   position: fixed;
@@ -195,10 +195,7 @@ code {
   letter-spacing: 0.2px;
 }
 
-.pageHeader p {
-  margin: 6px 0 0;
-  color: var(--muted);
-}
+.pageHeader p { margin: 6px 0 0; color: var(--muted); }
 
 .headerActions {
   display: flex;
@@ -208,7 +205,6 @@ code {
   justify-content: flex-end;
 }
 
-/* Responsive grids */
 .grid2, .grid3 { display: grid; gap: var(--s-3); }
 .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -227,6 +223,13 @@ code {
   gap: var(--s-2);
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* Pro: responsive header actions */
+.pageHeader .rowActions { justify-content: flex-end; }
+@media (max-width: 720px) {
+  .pageHeader { flex-direction: column; gap: 10px; }
+  .pageHeader .rowActions { width: 100%; }
 }
 
 .help { color: var(--muted); font-size: 13px; }
@@ -372,7 +375,6 @@ iframe { background: #fff; }
 .menuItem:focus-visible { outline: none; box-shadow: var(--focus); }
 .menuItem.danger { color: var(--danger); }
 
-/* Active state in menu */
 .menuItem.active {
   background: rgba(39, 193, 60, 0.1);
   font-weight: 900;
@@ -411,7 +413,6 @@ iframe { background: #fff; }
 
 .navGroup { position: relative; }
 
-/* Ensure buttons receive hover */
 .navGroupBtn,
 .navDropItem {
   pointer-events: auto;
@@ -419,7 +420,6 @@ iframe { background: #fff; }
   z-index: 5;
 }
 
-/* Group button */
 .navGroupBtn {
   appearance: none;
   border: 1px solid var(--border);
@@ -461,13 +461,9 @@ iframe { background: #fff; }
   border-color: rgba(39, 193, 60, 0.22);
 }
 
-.navCaret {
-  color: var(--muted);
-  transition: transform 0.12s ease;
-}
+.navCaret { color: var(--muted); transition: transform 0.12s ease; }
 .navCaret.isOpen { transform: rotate(180deg); }
 
-/* Dropdown */
 .navDrop {
   position: absolute;
   top: calc(100% + 10px);
@@ -635,7 +631,6 @@ iframe { background: #fff; }
   color: #fff;
   box-shadow: 0 12px 20px rgba(39, 193, 60, 0.2);
 }
-
 .btnPrimary:hover { filter: brightness(0.96); text-decoration: none; }
 .btnPrimary:disabled { box-shadow: none; }
 
@@ -644,7 +639,6 @@ iframe { background: #fff; }
   color: var(--text);
   border-color: var(--border);
 }
-
 .btnSecondary:hover {
   background: var(--secondary-2);
   border-color: var(--border-2);
@@ -656,12 +650,10 @@ iframe { background: #fff; }
   color: #fff;
   box-shadow: 0 12px 20px rgba(180, 35, 24, 0.16);
 }
-
 .btnDanger:hover { filter: brightness(0.94); }
 
 .btn--sm { padding: 8px 10px; font-size: 13px; }
 
-/* Small screens */
 @media (max-width: 520px) {
   .btn { width: 100%; }
   .rowActions { width: 100%; }
@@ -739,7 +731,6 @@ iframe { background: #fff; }
   flex-wrap: wrap;
 }
 
-/* remove underline when btn is a link in table */
 .table a.btn { text-decoration: none; }
 .table a.btn:hover { text-decoration: none; }
 
@@ -889,27 +880,12 @@ iframe { background: #fff; }
 .ac__item:hover { background: rgba(17, 24, 39, 0.03); }
 .ac__item.is-active { background: rgba(193, 88, 39, 0.1); }
 
-.acRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.acName { font-weight: 950; }
-
-.acCode {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  color: var(--muted);
-  font-weight: 950;
-  font-size: 12px;
-}
-
 /* =========================================================
    12) PAGES
    ========================================================= */
 
 /* -------------------------
-   12.1) AUTH PAGES (Global)
+   12.1) AUTH
    ------------------------- */
 .authWrap {
   min-height: calc(100vh - var(--navbar-h));
@@ -917,12 +893,11 @@ iframe { background: #fff; }
   place-items: center;
   padding: var(--s-5) var(--s-3);
 }
-
 .authCard { width: min(520px, 100%); padding: 18px; }
 .authCard h2 { margin: 0 0 var(--s-3); font-size: 20px; font-weight: 950; }
 
 /* -------------------------
-   12.2) LOGIN PAGE
+   12.2) LOGIN
    ------------------------- */
 .authLayout {
   display: grid;
@@ -932,11 +907,7 @@ iframe { background: #fff; }
   width: min(1100px, 100%);
 }
 
-.authCard--login {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
+.authCard--login { display: flex; flex-direction: column; justify-content: center; }
 
 .authVisual {
   position: relative;
@@ -948,11 +919,7 @@ iframe { background: #fff; }
   place-items: center;
 }
 
-.authVisual img {
-  width: 80%;
-  max-width: 420px;
-  opacity: 0.95;
-}
+.authVisual img { width: 80%; max-width: 420px; opacity: 0.95; }
 
 .authVisualOverlay {
   position: absolute;
@@ -965,29 +932,12 @@ iframe { background: #fff; }
   color: #fff;
 }
 
-.authVisualOverlay h3 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: 0.3px;
-}
+.authVisualOverlay h3 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 0.3px; }
+.authVisualOverlay p { margin-top: 6px; font-size: 14px; opacity: 0.9; }
 
-.authVisualOverlay p {
-  margin-top: 6px;
-  font-size: 14px;
-  opacity: 0.9;
-}
+.authCard--login h2 { text-align: center; margin-bottom: 18px; }
 
-.authCard--login h2 {
-  text-align: center;
-  margin-bottom: 18px;
-}
-
-.authLinks {
-  text-align: center;
-  margin-top: 10px;
-}
-
+.authLinks { text-align: center; margin-top: 10px; }
 .authLinks a { font-weight: 800; }
 
 @media (max-width: 900px) {
@@ -996,21 +946,227 @@ iframe { background: #fff; }
   .authVisual img { width: 60%; }
 }
 
+/* -------------------------
+   12.3) ADD DOCUMENT (Pro)
+   ------------------------- */
+.addDoc { position: relative; }
+
+.addDocTop { display: grid; gap: var(--s-4); align-items: start; }
+
+.addDocTop--pdfLeft {
+  grid-template-columns: 0.92fr 1.28fr;
+  margin-top: 18px;
+}
+
+/* Keep explicit layout */
+.addDocTop--pdfLeft .pdfBox { grid-column: 1; }
+.addDocTop--pdfLeft .addDocInputs { grid-column: 2; }
+
+.addDocInputs { display: block; padding: 2px; }
+
+@media (max-width: 980px) {
+  .addDocTop--pdfLeft { grid-template-columns: 1fr; }
+  .addDocTop--pdfLeft .pdfBox,
+  .addDocTop--pdfLeft .addDocInputs { grid-column: auto; }
+}
+
+.pdfDrop {
+  display: block;
+  border: 1px dashed var(--border-2);
+  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(251,250,248,0.85));
+  border-radius: var(--r-lg);
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, background 0.12s ease;
+  min-height: 320px;
+  box-shadow: 0 10px 18px rgba(17, 24, 39, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.pdfDrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(800px 300px at 15% 0%, rgba(39, 193, 85, 0.08), transparent 55%),
+    radial-gradient(800px 300px at 85% 0%, rgba(193, 39, 45, 0.08), transparent 55%);
+  opacity: 0.9;
+}
+
+.pdfDrop:hover {
+  border-color: rgba(39, 193, 78, 0.35);
+  box-shadow: 0 16px 26px rgba(17, 24, 39, 0.10);
+  transform: translateY(-1px);
+}
+.pdfDrop:active { transform: translateY(0px); }
+
+.pdfDrop.is-picked {
+  border-style: solid;
+  border-color: rgba(0, 98, 51, 0.25);
+  background: rgba(0, 98, 51, 0.06);
+}
+
+.pdfInput { display: none; }
+
+.pdfDrop__empty,
+.pdfDrop__picked {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.pdfIcon {
+  width: 86px;
+  height: 86px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  border: 1px solid rgba(39, 193, 52, 0.18);
+  background: linear-gradient(180deg, rgba(39, 193, 60, 0.12), rgba(0, 98, 51, 0.08));
+  color: var(--primary);
+}
+
+.uploadMark { filter: drop-shadow(0 10px 18px rgba(17, 24, 39, 0.10)); }
+
+.pdfDrop__big { font-weight: 950; font-size: 16px; }
+.pdfDrop__small { font-size: 13px; color: var(--muted); }
+
+.pdfDrop__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 950;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.pdfDrop__picked {
+  grid-template-columns: auto 1fr auto;
+  text-align: start;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.pdfPicked__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 98, 51, 0.22);
+  background: rgba(0, 98, 51, 0.10);
+  color: var(--morocco-green);
+}
+
+.pdfPicked__meta { overflow: hidden; }
+
+.pdfPicked__name {
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdfPicked__hint { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+.pdfPicked__clear {
+  appearance: none;
+  border: 1px solid rgba(39, 193, 52, 0.25);
+  background: rgba(39, 193, 98, 0.1);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+.pdfPicked__clear:hover { background: rgba(39, 193, 78, 0.14); }
+.pdfPicked__clear:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 720px) {
+  .pdfDrop { min-height: 240px; }
+  .addDoc .rowActions .btn { width: 100%; }
+}
+
+/* -------------------------
+   12.4) DOCUMENT DETAILS (Pro)
+   + kv grid + pdf viewer box
+   ------------------------- */
+
+/* Key/Value grid */
+.kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(251,250,248,0.9), rgba(255,255,255,0.95));
+  border: 1px solid var(--border);
+}
+
+.kv > div {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  background: rgba(255,255,255,0.75);
+}
+
+.kv .k {
+  display: inline-block;
+  min-width: 120px;
+  font-weight: 950;
+  color: var(--muted);
+  margin-inline-end: 8px;
+}
+
+@media (max-width: 900px) {
+  .kv { grid-template-columns: 1fr; }
+  .kv .k { min-width: auto; }
+}
+
+/* PDF preview frame wrapper (if you later switch to class) */
+.pdfFrame {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.08);
+}
+
+/* Make iframe nicer */
+.pdfFrame iframe {
+  width: 100%;
+  height: 75vh;
+  border: 0;
+  display: block;
+}
+
+/* Small screen: reduce height */
+@media (max-width: 720px) {
+  .pdfFrame iframe { height: 62vh; }
+}
+
 /* =========================================================
    13) RESPONSIVE MOBILE DRAWER MENU (Pro)
    ========================================================= */
-
-/* Burger: hidden on desktop */
 .burgerBtn { display: none; }
 
-/* On mobile: hide center nav + user menu, show burger */
 @media (max-width: 980px) {
   .navCenter { display: none !important; }
   .userBox { display: none !important; }
   .burgerBtn { display: grid !important; }
 }
 
-/* Burger button */
 .burgerBtn {
   appearance: none;
   border: 1px solid var(--border);
@@ -1045,7 +1201,6 @@ iframe { background: #fff; }
 .burgerBtn.isOpen .burgerIcon span:nth-child(2) { opacity: 0; }
 .burgerBtn.isOpen .burgerIcon span:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 
-/* Overlay (IMPORTANT FIX: visibility + pointer-events) */
 .navOverlay {
   position: fixed;
   inset: 0;
@@ -1063,7 +1218,6 @@ iframe { background: #fff; }
   visibility: visible;
 }
 
-/* Drawer (IMPORTANT FIX: visibility + pointer-events) */
 .navDrawer {
   position: fixed;
   top: 0;
@@ -1090,7 +1244,6 @@ iframe { background: #fff; }
   pointer-events: auto;
 }
 
-/* Drawer header */
 .navDrawer__head {
   padding: 14px;
   border-bottom: 1px solid var(--border);
@@ -1132,10 +1285,8 @@ iframe { background: #fff; }
 }
 .drawerClose:hover { border-color: var(--border-2); }
 
-/* Drawer body */
 .navDrawer__body { padding: 12px; overflow: auto; }
 
-/* Groups */
 .drawerGroup {
   border: 1px solid var(--border);
   background: var(--surface);
@@ -1168,7 +1319,6 @@ iframe { background: #fff; }
   gap: 6px;
 }
 
-/* Drawer items */
 .drawerItem {
   width: 100%;
   border: 1px solid transparent;
@@ -1197,39 +1347,26 @@ iframe { background: #fff; }
 
 .drawerSep { height: 1px; background: var(--border); margin: 12px 4px; }
 
-/* Touch targets */
 @media (hover: none) {
   .burgerBtn, .drawerItem, .drawerGroupBtn, .drawerClose { min-height: 44px; }
 }
 
-/* =========================
-   DASH KPI GRID (Responsive)
-   PC: 4 columns
-   Tablet: 3 columns
-   Mobile: 1 column
-   ========================= */
-
+/* =========================================================
+   DASH KPI GRID
+   PC: 4 | Tablet: 3 | Mobile: 1
+   ========================================================= */
 .dashKpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s-3);
 }
-
-/* Tablet: 3 columns */
 @media (max-width: 1024px) {
-  .dashKpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .dashKpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-
-/* Phone: 1 column */
 @media (max-width: 560px) {
-  .dashKpis {
-    grid-template-columns: 1fr;
-  }
+  .dashKpis { grid-template-columns: 1fr; }
 }
 
-/* KPI Card */
 .kpiCard {
   background: var(--surface);
   border: 1px solid var(--border);
