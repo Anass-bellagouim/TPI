@@ -69,15 +69,6 @@ export default function ResetPassword() {
       <div className="card authCard">
         <h2>إعادة تعيين كلمة المرور</h2>
 
-        <div className="help" style={{ marginBottom: 10, opacity: 0.9 }}>
-          <div>
-            <strong>البريد الإلكتروني:</strong> {email || "—"}
-          </div>
-          <div>
-            <strong>الرمز (Token):</strong> {token ? `${token.slice(0, 12)}...` : "—"}
-          </div>
-        </div>
-
         {err && <div className="alert alertError">{err}</div>}
         {ok && <div className="alert alertSuccess">{ok}</div>}
 
