@@ -10,13 +10,11 @@ class JudgeController extends Controller
 {
     public function index(Request $request)
     {
-        // أسماء من جدول judges
         $fromJudges = DB::table('judges')
             ->whereNotNull('name')
             ->where('name', '!=', '')
             ->pluck('name');
 
-        // أسماء من documents
         $fromDocs = DB::table('documents')
             ->whereNotNull('judge_name')
             ->where('judge_name', '!=', '')

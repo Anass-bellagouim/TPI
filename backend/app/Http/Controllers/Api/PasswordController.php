@@ -80,12 +80,10 @@ class PasswordController extends Controller
                 'token'                 => $request->token,
             ],
             function ($user) use ($request) {
-                // ✅ ما كنحتاجوش remember_token حيث DB ما فيهش وسانكتوم كافي
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                 ])->save();
 
-                // ✅ revoke sanctum tokens (أمنياً)
                 if (method_exists($user, 'tokens')) {
                     $user->tokens()->delete();
                 }

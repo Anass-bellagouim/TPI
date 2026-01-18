@@ -56,11 +56,6 @@ class PasswordResetController extends Controller
         ], 422);
     }
 
-    /**
-     * POST /api/auth/reset-password
-     * body: { token, email, password, password_confirmation }
-     * ✅ ADMIN ONLY
-     */
     public function reset(Request $request)
     {
         $data = $request->validate([

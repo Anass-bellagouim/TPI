@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 
 class LookupsController extends Controller
 {
-    // GET /api/lookups/divisions?active=1
     public function divisions(Request $request)
     {
         $onlyActive = $request->boolean('active', true);

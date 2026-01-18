@@ -16,14 +16,10 @@ class DocumentController extends Controller
     private function perPage(Request $request, int $default = 20): int
     {
         $pp = (int) $request->query('per_page', $default);
-        // حدّدنا سقف باش ما يجيش شي حد يدير 5000
         return max(1, min($pp, 100));
     }
 
-    /**
-     * GET /api/documents?per_page=10&page=1
-     * (pagination) — بلا content_text
-     */
+
     public function index(Request $request)
     {
         $perPage = $this->perPage($request, 20);

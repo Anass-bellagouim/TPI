@@ -265,10 +265,8 @@ class EmployeeController extends Controller
         ]);
     }
 
-    // PATCH /api/admin/employees/{user}/toggle-active
     public function toggleActive(User $user)
     {
-        // ✅ منع toggle على admins إلا super admin
         $this->assertCanManageTarget($user, 'toggle_active');
 
         // بقا الشرط القديم: كان كيرفض admin نهائياً
@@ -291,7 +289,6 @@ class EmployeeController extends Controller
     // DELETE /api/admin/employees/{user}
     public function destroy(User $user)
     {
-        // ✅ منع delete على admins إلا super admin + منع self-delete
         $this->assertCanManageTarget($user, 'delete');
 
         if (method_exists($user, 'tokens')) {

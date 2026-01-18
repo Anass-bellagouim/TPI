@@ -24,7 +24,6 @@ class ChangePasswordController extends Controller
         $user->password = Hash::make($data['new_password']);
         $user->save();
 
-        // نبدّل السياسة: نقدر نخلّيه كيبقى داخل، ولكن الأفضل نحيد tokens باش يكون آمن
         $user->tokens()->delete();
 
         return response()->json([

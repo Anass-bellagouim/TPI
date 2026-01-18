@@ -148,7 +148,6 @@ class AuthController extends Controller
         $user->password = Hash::make($data['password']);
         $user->save();
 
-        // ✅ revoke tokens (أحسن أمنياً)
         if (method_exists($user, 'tokens')) {
             $user->tokens()->delete();
         }
