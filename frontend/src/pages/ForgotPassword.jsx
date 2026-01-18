@@ -4,7 +4,7 @@ import api from "../api";
 
 export default function ForgotPassword() {
   const [identifier, setIdentifier] = useState("");
-  const [step, setStep] = useState("check"); // check | user | admin
+  const [step, setStep] = useState("check"); 
   const [email, setEmail] = useState("");
 
   const [loading, setLoading] = useState(false);

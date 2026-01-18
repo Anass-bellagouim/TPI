@@ -198,7 +198,6 @@ export default function EmployeeDetails() {
     }
   }
 
-  // ✅ Confirm Dialog dynamic config
   const confirmConfig = useMemo(() => {
     const isBusy = loadingToggle || loadingReset || loadingDelete;
 
@@ -207,7 +206,7 @@ export default function EmployeeDetails() {
 
       return {
         open: confirmOpen,
-        danger: isActive, // توقيف = danger، تفعيل = عادي
+        danger: isActive, 
         title: isActive ? "توقيف الحساب" : "تفعيل الحساب",
         message: isActive
           ? "هل أنت متأكد أنك تريد توقيف هذا الحساب؟ لن يتمكن الموظف من تسجيل الدخول وسيتم سحب الجلسات/الرموز."
@@ -264,7 +263,6 @@ export default function EmployeeDetails() {
 
   useEffect(() => {
     fetchEmployee();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   return (
@@ -451,7 +449,6 @@ export default function EmployeeDetails() {
         </div>
       )}
 
-      {/* ✅ One Pro ConfirmDialog for all actions */}
       <ConfirmDialog
         open={confirmConfig.open}
         danger={confirmConfig.danger}

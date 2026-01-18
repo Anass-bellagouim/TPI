@@ -137,8 +137,6 @@ export default function Dashboard() {
                 <th>رقم الملف</th>
                 <th>رقم الحكم</th>
                 <th>القاضي</th>
-
-                {/* ✅ حذفنا تاريخ الإضافة + تحديث */}
                 <th>إجراءات</th>
               </tr>
             </thead>

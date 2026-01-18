@@ -171,7 +171,6 @@ export default function DivisionsAdmin() {
     }
   }
 
-  // ✅ بدل window.confirm: كنفتح modal
   function askRemoveDivision(row) {
     setError("");
     setInfo("");
