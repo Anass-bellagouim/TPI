@@ -27,3 +27,4 @@ export default function RequireAdmin({ children }) {
 
   return children ? children : <Outlet />;
 }
+
