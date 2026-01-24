@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ExtractDocumentTextJob;
+use App\Models\ActivityLog;
+use App\Models\CaseType;
 use App\Models\Document;
+use App\Models\Judge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -19,6 +22,31 @@ class DocumentController extends Controller
         return max(1, min($pp, 100));
     }
 
+    private function logDocumentAction(Request $request, Document $doc, string $action, ?string $message = null): void
+    {
+        try {
+            $user = $request->user();
+            $actorName = null;
+            if ($user) {
+                $actorName = trim((string) ($user->full_name ?? ''));
+                if ($actorName === '') {
+                    $actorName = (string) ($user->username ?? $user->email ?? '');
+                }
+            }
+
+            ActivityLog::create([
+                'user_id' => $user?->id,
+                'actor_name' => $actorName ?: null,
+                'action' => $action,
+                'entity_type' => 'document',
+                'entity_id' => $doc->id,
+                'message' => $message,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
 
     public function index(Request $request)
     {
@@ -31,7 +59,10 @@ class DocumentController extends Controller
                 'case_number',
                 'judgement_number',
                 'judge_name',
+                'judge_id',
                 'division',
+                'case_type_id',
+                'user_id',
                 'keyword',
                 'original_filename',
                 'file_path',
@@ -59,20 +90,60 @@ class DocumentController extends Controller
             'case_number' => ['nullable', 'string', 'max:255'],
             'judgement_number' => ['nullable', 'string', 'max:255'],
             'judge_name' => ['nullable', 'string', 'max:255'],
+            'judge_id' => ['nullable', 'integer', 'exists:judges,id'],
             'division' => ['nullable', 'string', 'max:255'],
+            'case_type_id' => ['nullable', 'integer', 'exists:case_types,id'],
             'keyword' => ['nullable', 'string', 'max:255'],
         ]);
 
         $pdf = $data['pdf'];
         $path = $pdf->store('documents', 'public'); // documents/xxx.pdf
+        unset($data['pdf']);
+
+        $judge = null;
+        if (!empty($data['judge_id'])) {
+            $judge = Judge::find($data['judge_id']);
+        } elseif (!empty($data['judge_name'])) {
+            $judge = Judge::query()->where('full_name', $data['judge_name'])->first();
+            if ($judge) {
+                $data['judge_id'] = $judge->id;
+            }
+        }
+
+        $caseType = null;
+        if (!empty($data['case_type_id'])) {
+            $caseType = CaseType::query()->with('division:id,name')->find($data['case_type_id']);
+        } elseif (!empty($data['keyword'])) {
+            $caseQuery = CaseType::query()->with('division:id,name')->where('code', $data['keyword']);
+            if (!empty($data['division'])) {
+                $caseQuery->whereHas('division', fn ($q) => $q->where('name', $data['division']));
+            }
+            $matches = $caseQuery->get();
+            if ($matches->count() === 1) {
+                $caseType = $matches->first();
+                $data['case_type_id'] = $caseType->id;
+            }
+        }
+
+        if ($judge && empty($data['judge_name'])) {
+            $data['judge_name'] = $judge->full_name;
+        }
+
+        if ($caseType) {
+            if (empty($data['keyword'])) {
+                $data['keyword'] = $caseType->code;
+            }
+            if (empty($data['type'])) {
+                $data['type'] = $caseType->name;
+            }
+            if (empty($data['division']) && $caseType->division) {
+                $data['division'] = $caseType->division->name;
+            }
+        }
 
         $doc = new Document();
-        $doc->type = $data['type'] ?? null;
-        $doc->case_number = $data['case_number'] ?? null;
-        $doc->judgement_number = $data['judgement_number'] ?? null;
-        $doc->judge_name = $data['judge_name'] ?? null;
-        $doc->division = $data['division'] ?? null;
-        $doc->keyword = $data['keyword'] ?? null;
+        $doc->fill($data);
+        $doc->user_id = $request->user()?->id;
 
         $doc->original_filename = $pdf->getClientOriginalName();
         $doc->file_path = $path;
@@ -85,6 +156,8 @@ class DocumentController extends Controller
 
         $doc->save();
 
+        $this->logDocumentAction($request, $doc, 'created', $doc->original_filename);
+
         ExtractDocumentTextJob::dispatch($doc->id);
 
         return response()->json([
@@ -95,7 +168,10 @@ class DocumentController extends Controller
                 'case_number',
                 'judgement_number',
                 'judge_name',
+                'judge_id',
                 'division',
+                'case_type_id',
+                'user_id',
                 'keyword',
                 'original_filename',
                 'file_path',
@@ -131,7 +207,9 @@ class DocumentController extends Controller
         $caseNumber = trim((string) $request->query('case_number', ''));
         $judgementNumber = trim((string) $request->query('judgement_number', ''));
         $judgeName = trim((string) $request->query('judge_name', ''));
+        $judgeId = $request->integer('judge_id') ?: null;
         $division = trim((string) $request->query('division', ''));
+        $caseTypeId = $request->integer('case_type_id') ?: null;
         $keyword = trim((string) $request->query('keyword', ''));
         $qText = trim((string) $request->query('q', ''));
 
@@ -142,7 +220,10 @@ class DocumentController extends Controller
                 'case_number',
                 'judgement_number',
                 'judge_name',
+                'judge_id',
                 'division',
+                'case_type_id',
+                'user_id',
                 'keyword',
                 'status',
                 'extract_status',
@@ -163,8 +244,14 @@ class DocumentController extends Controller
         if ($judgeName !== '') {
             $q->where('judge_name', 'like', "%{$judgeName}%");
         }
+        if ($judgeId) {
+            $q->where('judge_id', $judgeId);
+        }
         if ($division !== '') {
             $q->where('division', 'like', "%{$division}%");
+        }
+        if ($caseTypeId) {
+            $q->where('case_type_id', $caseTypeId);
         }
 
         // keyword filter (كما كان)
@@ -216,13 +303,61 @@ class DocumentController extends Controller
             'case_number' => ['nullable', 'string', 'max:255'],
             'judgement_number' => ['nullable', 'string', 'max:255'],
             'judge_name' => ['nullable', 'string', 'max:255'],
+            'judge_id' => ['nullable', 'integer', 'exists:judges,id'],
             'division' => ['nullable', 'string', 'max:255'],
+            'case_type_id' => ['nullable', 'integer', 'exists:case_types,id'],
             'keyword' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'max:50'],
         ]);
 
+        $judge = null;
+        if (array_key_exists('judge_id', $data) && !empty($data['judge_id'])) {
+            $judge = Judge::find($data['judge_id']);
+        } elseif (array_key_exists('judge_name', $data) && !empty($data['judge_name'])) {
+            $judge = Judge::query()->where('full_name', $data['judge_name'])->first();
+            if ($judge) {
+                $data['judge_id'] = $judge->id;
+            }
+        }
+
+        $caseType = null;
+        if (array_key_exists('case_type_id', $data) && !empty($data['case_type_id'])) {
+            $caseType = CaseType::query()->with('division:id,name')->find($data['case_type_id']);
+        } elseif (array_key_exists('keyword', $data) && !empty($data['keyword'])) {
+            $caseQuery = CaseType::query()->with('division:id,name')->where('code', $data['keyword']);
+            if (!empty($data['division'])) {
+                $caseQuery->whereHas('division', fn ($q) => $q->where('name', $data['division']));
+            }
+            $matches = $caseQuery->get();
+            if ($matches->count() === 1) {
+                $caseType = $matches->first();
+                $data['case_type_id'] = $caseType->id;
+            }
+        }
+
+        if ($judge && (!array_key_exists('judge_name', $data) || empty($data['judge_name']))) {
+            $data['judge_name'] = $judge->full_name;
+        }
+
+        if ($caseType) {
+            if (!array_key_exists('keyword', $data) || empty($data['keyword'])) {
+                $data['keyword'] = $caseType->code;
+            }
+            if (!array_key_exists('type', $data) || empty($data['type'])) {
+                $data['type'] = $caseType->name;
+            }
+            if ((!array_key_exists('division', $data) || empty($data['division'])) && $caseType->division) {
+                $data['division'] = $caseType->division->name;
+            }
+        }
+
         $doc->fill($data);
+        $changed = $doc->isDirty();
         $doc->save();
+
+        if ($changed) {
+            $this->logDocumentAction($request, $doc, 'updated');
+        }
 
         return response()->json([
             'message' => 'تم تحديث الوثيقة بنجاح',
@@ -240,6 +375,8 @@ class DocumentController extends Controller
         if ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
             Storage::disk('public')->delete($doc->file_path);
         }
+
+        $this->logDocumentAction($request, $doc, 'deleted', $doc->original_filename);
 
         $doc->delete();
 

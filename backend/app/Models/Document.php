@@ -11,6 +11,7 @@ class Document extends Model
         'judgement_number',
         'case_number',
         'judge_name',
+        'judge_id',
         'original_filename',
         'file_path',
         'content_text',
@@ -18,6 +19,8 @@ class Document extends Model
         'extract_status',
         'extract_error',
         'division',
+        'case_type_id',
+        'user_id',
         'keyword',
     ];
 
@@ -27,4 +30,19 @@ class Document extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function judge()
+    {
+        return $this->belongsTo(Judge::class);
+    }
+
+    public function caseType()
+    {
+        return $this->belongsTo(CaseType::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

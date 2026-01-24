@@ -25,6 +25,13 @@ function StatusBadge({ status }) {
   );
 }
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString();
+}
+
 export default function Dashboard() {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +60,7 @@ export default function Dashboard() {
 
   const kpis = payload?.kpis || {};
   const latest = Array.isArray(payload?.latest) ? payload.latest : [];
+  const logs = Array.isArray(payload?.logs) ? payload.logs : [];
 
   const kpiCards = useMemo(() => {
     return [
@@ -68,13 +76,32 @@ export default function Dashboard() {
     ];
   }, [kpis]);
 
+  const logsByEntityId = useMemo(() => {
+    const map = {};
+    logs
+      .filter((l) => l?.entity_type === "document" && l?.action === "created")
+      .forEach((l) => {
+        if (!l?.entity_id) return;
+        map[String(l.entity_id)] = {
+          actor_name: l.actor_name || (l.user_id ? `#${l.user_id}` : "?"),
+          created_at: l.created_at,
+        };
+      });
+    return map;
+  }, [logs]);
+
   const rows = useMemo(() => {
-    return latest.map((d) => ({
-      ...d,
-      download_url: d?.download_url || `${API_BASE_URL}/api/documents/${d.id}/download`,
-      has_file: d?.has_file ?? true,
-    }));
-  }, [latest]);
+    return latest.map((d) => {
+      const log = logsByEntityId[String(d.id)];
+      return {
+        ...d,
+        download_url: d?.download_url || `${API_BASE_URL}/api/documents/${d.id}/download`,
+        has_file: d?.has_file ?? true,
+        added_by: log?.actor_name || "?",
+        added_at: log?.created_at || d?.created_at || null,
+      };
+    });
+  }, [latest, logsByEntityId]);
 
   if (loading) {
     return <div className="alert alertInfo card">جاري تحميل لوحة القيادة...</div>;
@@ -137,7 +164,9 @@ export default function Dashboard() {
                 <th>رقم الملف</th>
                 <th>رقم الحكم</th>
                 <th>القاضي</th>
-                <th>إجراءات</th>
+                <th>أضيفة بوساطة</th>
+                <th>التاريخ</th>
+                <th>الإجراءات</th>
               </tr>
             </thead>
 
@@ -149,6 +178,8 @@ export default function Dashboard() {
                   <td>{d.case_number || "—"}</td>
                   <td>{d.judgement_number || "—"}</td>
                   <td>{d.judge_name || "—"}</td>
+                  <td>{d.added_by || "?"}</td>
+                  <td>{formatDateTime(d.added_at)}</td>
 
                   <td>
                     <div className="rowActions">
@@ -177,6 +208,7 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
     </div>
   );
 }

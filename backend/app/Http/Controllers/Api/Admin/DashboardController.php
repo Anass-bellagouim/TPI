@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Document;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -90,38 +91,64 @@ class DashboardController extends Controller
         }
 
         // =========================
-        // Charts: by division (Top 8) — documents.division (string)
+        // Charts: by division (Top 8) — prefer FK, fallback to documents.division
         // =========================
-        $byDivision = Document::query()
-            ->select('division', DB::raw('COUNT(*) as count'))
-            ->whereNotNull('division')
-            ->where(DB::raw('TRIM(division)'), '!=', '')
-            ->groupBy('division')
-            ->orderByDesc('count')
-            ->limit(8)
-            ->get()
-            ->map(fn ($r) => [
-                'division' => $r->division,
-                'count' => (int) $r->count,
-            ])
-            ->toArray();
+        $byDivision = [];
+        if (
+            Schema::hasColumn('documents', 'case_type_id') &&
+            Schema::hasTable('case_types') &&
+            Schema::hasTable('divisions')
+        ) {
+            $byDivision = DB::table('documents')
+                ->leftJoin('case_types', 'case_types.id', '=', 'documents.case_type_id')
+                ->leftJoin('divisions', 'divisions.id', '=', 'case_types.division_id')
+                ->select(DB::raw('divisions.name as division'), DB::raw('COUNT(*) as count'))
+                ->whereNotNull('divisions.name')
+                ->where(DB::raw('TRIM(divisions.name)'), '!=', '')
+                ->groupBy(DB::raw('divisions.name'))
+                ->orderByDesc('count')
+                ->limit(8)
+                ->get()
+                ->map(fn ($r) => [
+                    'division' => $r->division,
+                    'count' => (int) $r->count,
+                ])
+                ->toArray();
+        } else {
+            $byDivision = Document::query()
+                ->select('division', DB::raw('COUNT(*) as count'))
+                ->whereNotNull('division')
+                ->where(DB::raw('TRIM(division)'), '!=', '')
+                ->groupBy('division')
+                ->orderByDesc('count')
+                ->limit(8)
+                ->get()
+                ->map(fn ($r) => [
+                    'division' => $r->division,
+                    'count' => (int) $r->count,
+                ])
+                ->toArray();
+        }
 
         // =========================
-        // Charts: by case type code (Top 10) — documents.keyword
-        // join case_types.code to get name (optional)
+        // Charts: by case type code (Top 10) — prefer FK, fallback to documents.keyword
         // =========================
         $byCaseType = [];
-        if (Schema::hasTable('case_types') && Schema::hasColumn('case_types', 'code')) {
+        if (
+            Schema::hasColumn('documents', 'case_type_id') &&
+            Schema::hasTable('case_types') &&
+            Schema::hasColumn('case_types', 'code')
+        ) {
             $byCaseType = DB::table('documents')
-                ->leftJoin('case_types', 'case_types.code', '=', 'documents.keyword')
+                ->leftJoin('case_types', 'case_types.id', '=', 'documents.case_type_id')
                 ->select(
-                    DB::raw('documents.keyword as code'),
-                    DB::raw('MAX(case_types.name) as name'),
+                    DB::raw('case_types.code as code'),
+                    DB::raw('case_types.name as name'),
                     DB::raw('COUNT(*) as count')
                 )
-                ->whereNotNull('documents.keyword')
-                ->where(DB::raw('TRIM(documents.keyword)'), '!=', '')
-                ->groupBy(DB::raw('documents.keyword'))
+                ->whereNotNull('case_types.code')
+                ->where(DB::raw('TRIM(case_types.code)'), '!=', '')
+                ->groupBy(DB::raw('case_types.code'), DB::raw('case_types.name'))
                 ->orderByDesc('count')
                 ->limit(10)
                 ->get()
@@ -197,6 +224,11 @@ class DashboardController extends Controller
         // Latest uploads (10)
         // =========================
         $latestDocs = Document::query()
+            ->with([
+                'judge:id,full_name',
+                'caseType:id,division_id,code,name',
+                'caseType.division:id,name',
+            ])
             ->select([
                 'id',
                 'division',
@@ -205,6 +237,8 @@ class DashboardController extends Controller
                 'case_number',
                 'judgement_number',
                 'judge_name',
+                'judge_id',
+                'case_type_id',
                 'status',
                 'extract_status',
                 'original_filename',
@@ -217,8 +251,25 @@ class DashboardController extends Controller
             ->get();
 
         $latest = $latestDocs->map(function ($d) {
+            $divisionName = trim((string) ($d->division ?? ''));
+            if ($divisionName === '' && $d->caseType && $d->caseType->division) {
+                $divisionName = (string) $d->caseType->division->name;
+            }
+
+            $judgeName = trim((string) ($d->judge_name ?? ''));
+            if ($judgeName === '' && $d->judge) {
+                $judgeName = (string) $d->judge->full_name;
+            }
+
             $typeName = trim((string) ($d->type ?? ''));
+            if ($typeName === '' && $d->caseType) {
+                $typeName = (string) $d->caseType->name;
+            }
+
             $code = trim((string) ($d->keyword ?? ''));
+            if ($code === '' && $d->caseType) {
+                $code = (string) $d->caseType->code;
+            }
 
             $typeOrKeyword = null;
             if ($typeName !== '' && $code !== '') $typeOrKeyword = $typeName . " (" . $code . ")";
@@ -234,13 +285,13 @@ class DashboardController extends Controller
 
             return [
                 'id' => $d->id,
-                'division' => $d->division,
+                'division' => $divisionName !== '' ? $divisionName : null,
                 'type_or_keyword' => $typeOrKeyword,
                 'type' => $d->type,
                 'keyword' => $d->keyword,
                 'case_number' => $d->case_number,
                 'judgement_number' => $d->judgement_number,
-                'judge_name' => $d->judge_name,
+                'judge_name' => $judgeName !== '' ? $judgeName : null,
                 'status' => $st,
                 'created_at' => $d->created_at,
                 'updated_at' => $d->updated_at,
@@ -248,6 +299,46 @@ class DashboardController extends Controller
                 'download_url' => url("/api/documents/{$d->id}/download"),
             ];
         })->toArray();
+
+        $logs = [];
+        if (Schema::hasTable('activity_logs')) {
+            $logs = ActivityLog::query()
+                ->with(['user:id,first_name,last_name,username'])
+                ->select([
+                    'id',
+                    'user_id',
+                    'actor_name',
+                    'action',
+                    'entity_type',
+                    'entity_id',
+                    'message',
+                    'created_at',
+                ])
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get()
+                ->map(function ($log) {
+                    $actorName = trim((string) ($log->actor_name ?? ''));
+                    if ($actorName === '' && $log->user) {
+                        $actorName = trim((string) ($log->user->full_name ?? ''));
+                        if ($actorName === '') {
+                            $actorName = (string) ($log->user->username ?? $log->user->email ?? '');
+                        }
+                    }
+
+                    return [
+                        'id' => $log->id,
+                        'user_id' => $log->user_id,
+                        'actor_name' => $actorName !== '' ? $actorName : null,
+                        'action' => $log->action,
+                        'entity_type' => $log->entity_type,
+                        'entity_id' => $log->entity_id,
+                        'message' => $log->message,
+                        'created_at' => $log->created_at,
+                    ];
+                })
+                ->toArray();
+        }
 
         $payload = [
             'kpis' => [
@@ -270,6 +361,7 @@ class DashboardController extends Controller
                 'processing_time' => $processingTime,
             ],
             'latest' => $latest,
+            'logs' => $logs,
             'meta' => [
                 'range_days' => $rangeDays,
             ],
