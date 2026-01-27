@@ -33,7 +33,7 @@ export default function AppShell() {
   const displayName = useMemo(() => {
     if (!user) return "غير مسجل";
     const full = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-    return full || user.full_name || user.username || user.email || "مستخدم";
+    return full || user.full_name || user.empname || user.email || "مستخدم";
   }, [user]);
 
   const isActive = (path, { exact = false } = {}) => {

@@ -27,8 +27,8 @@ function formatLaravelErrors(errorsObj) {
 const EMPTY_FORM = {
   first_name: "",
   last_name: "",
-  username: "",
-  role: "user",
+  empname: "",
+  role: "employee",
   email: "",
   password: "",
   password_confirmation: "",
@@ -46,7 +46,7 @@ export default function AddEmployee() {
 
   const isAdmin = form.role === "admin";
 
-  const usernamePreview = useMemo(() => sanitizeUsername(form.username), [form.username]);
+  const usernamePreview = useMemo(() => sanitizeUsername(form.empname), [form.empname]);
 
   function resetForm() {
     setForm(EMPTY_FORM);
@@ -74,8 +74,8 @@ export default function AddEmployee() {
   function validate() {
     if (!form.first_name.trim()) return "الاسم مطلوب.";
     if (!form.last_name.trim()) return "النسب مطلوب.";
-    if (!form.username.trim()) return "اسم المستخدم مطلوب.";
-    if (!sanitizeUsername(form.username.trim())) return "اسم المستخدم غير صالح. استعمل فقط حروفًا/أرقامًا/_/-";
+    if (!form.empname.trim()) return "اسم المستخدم مطلوب.";
+    if (!sanitizeUsername(form.empname.trim())) return "اسم المستخدم غير صالح. استعمل فقط حروفًا/أرقامًا/_/-";
 
     if (isAdmin) {
       if (!form.email.trim()) return "البريد الإلكتروني مطلوب للمسؤول.";
@@ -102,7 +102,7 @@ export default function AddEmployee() {
     const payload = {
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
-      username: sanitizeUsername(form.username),
+      empname: sanitizeUsername(form.empname),
       role: form.role,
       ...(isAdmin ? { email: form.email.trim() } : {}),
       ...(form.password ? { password: form.password, password_confirmation: form.password_confirmation } : {}),
@@ -177,8 +177,8 @@ export default function AddEmployee() {
               <div className="label">اسم المستخدم</div>
               <input
                 className="input"
-                value={form.username}
-                onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                value={form.empname}
+                onChange={(e) => setForm((p) => ({ ...p, empname: e.target.value }))}
                 placeholder="مثال: anass_aitbelagouim"
                 required
                 disabled={loading}
@@ -194,7 +194,7 @@ export default function AddEmployee() {
                 onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
                 disabled={loading}
               >
-                <option value="user">user</option>
+                <option value="employee">employee</option>
                 <option value="admin">admin</option>
               </select>
             </div>

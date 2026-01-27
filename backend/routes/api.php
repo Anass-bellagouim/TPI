@@ -34,10 +34,10 @@ Route::get('/ping', [PingController::class, 'ping']);
 */
 Route::prefix('auth')->group(function () {
 
-    // Login (username أو email)
+    // Login (empname أو email)
     Route::post('/login', [AuthController::class, 'login']);
 
-    // ✅ check username/email → role
+    // ✅ check empname/email → role
     Route::post('/forgot-password/check', [AuthController::class, 'forgotPasswordCheck']);
 
     // 🔒 send reset link (ADMIN ONLY logic inside controller)

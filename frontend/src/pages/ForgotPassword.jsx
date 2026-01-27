@@ -27,8 +27,8 @@ export default function ForgotPassword() {
         return;
       }
 
-      if (res.data.role === "user") {
-        setStep("user");
+      if (res.data.role === "employee") {
+        setStep("employee");
         return;
       }
 
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
           </form>
         )}
 
-        {step === "user" && (
+        {step === "employee" && (
           <div className="alert alertInfo">
             استرجاع كلمة المرور عبر البريد الإلكتروني غير متاح للموظفين.
             <br />

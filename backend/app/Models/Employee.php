@@ -8,15 +8,17 @@ use Laravel\Sanctum\HasApiTokens;
 
 use App\Notifications\ResetPasswordNotification;
 
-class User extends Authenticatable
+class Employee extends Authenticatable
 {
     use HasApiTokens, Notifiable;
+
+    protected $table = 'employees';
 
     protected $fillable = [
         'name',
         'first_name',
         'last_name',
-        'username',
+        'empname',
         'email',
         'password',
         'role',

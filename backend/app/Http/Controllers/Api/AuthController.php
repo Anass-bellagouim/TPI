@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
+use App\Models\Employee;
 
 class AuthController extends Controller
 {
@@ -22,7 +22,7 @@ class AuthController extends Controller
 
         $identifier = trim((string) $data['identifier']);
 
-        $user = User::where('username', $identifier)
+        $user = Employee::where('empname', $identifier)
             ->orWhere('email', $identifier)
             ->first();
 
@@ -47,7 +47,7 @@ class AuthController extends Controller
                 'id'         => $user->id,
                 'first_name' => $user->first_name,
                 'last_name'  => $user->last_name,
-                'username'   => $user->username,
+                'empname'    => $user->empname,
                 'email'      => $user->email,
                 'role'       => $user->role,
                 'is_active'  => (bool) ($user->is_active ?? true),
@@ -60,7 +60,7 @@ class AuthController extends Controller
      * body: { identifier }
      *
      * ✅ الهدف:
-     * - إذا role=user => يرجع غير role (ما يرجعش email)
+     * - إذا role=employee => يرجع غير role (ما يرجعش email)
      * - إذا role=admin => يرجع role + email
      * - إذا ما كاينش => exists=false
      */
@@ -72,7 +72,7 @@ class AuthController extends Controller
 
         $identifier = trim((string) $data['identifier']);
 
-        $user = User::where('username', $identifier)
+        $user = Employee::where('empname', $identifier)
             ->orWhere('email', $identifier)
             ->first();
 
@@ -81,10 +81,10 @@ class AuthController extends Controller
         }
 
         // 👤 USER: ما نرجعوش email نهائياً
-        if ($user->role === 'user') {
+        if ($user->role === 'employee') {
             return response()->json([
                 'exists' => true,
-                'role'   => 'user',
+                'role'   => 'employee',
             ]);
         }
 
@@ -107,7 +107,7 @@ class AuthController extends Controller
             'id'         => $u->id,
             'first_name' => $u->first_name,
             'last_name'  => $u->last_name,
-            'username'   => $u->username,
+            'empname'    => $u->empname,
             'email'      => $u->email,
             'role'       => $u->role,
             'is_active'  => (bool) ($u->is_active ?? true),

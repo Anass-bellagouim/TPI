@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use App\Models\User;
+use App\Models\Employee;
 
 class PasswordController extends Controller
 {
@@ -23,7 +23,7 @@ class PasswordController extends Controller
 
         $email = trim((string) $request->email);
 
-        $user = User::where('email', $email)->first();
+        $user = Employee::where('email', $email)->first();
 
         // 🔒 فقط admin يقدر يستعمل الإيميل reset
         if (!$user || $user->role !== 'admin') {
@@ -63,7 +63,7 @@ class PasswordController extends Controller
 
         $email = trim((string) $request->email);
 
-        $user = User::where('email', $email)->first();
+        $user = Employee::where('email', $email)->first();
 
         // 🔒 فقط admin
         if (!$user || $user->role !== 'admin') {

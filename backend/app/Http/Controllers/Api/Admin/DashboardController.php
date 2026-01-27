@@ -303,10 +303,10 @@ class DashboardController extends Controller
         $logs = [];
         if (Schema::hasTable('activity_logs')) {
             $logs = ActivityLog::query()
-                ->with(['user:id,first_name,last_name,username'])
+                ->with(['employee:id,first_name,last_name,empname'])
                 ->select([
                     'id',
-                    'user_id',
+                    'employee_id',
                     'actor_name',
                     'action',
                     'entity_type',
@@ -319,16 +319,16 @@ class DashboardController extends Controller
                 ->get()
                 ->map(function ($log) {
                     $actorName = trim((string) ($log->actor_name ?? ''));
-                    if ($actorName === '' && $log->user) {
-                        $actorName = trim((string) ($log->user->full_name ?? ''));
+                    if ($actorName === '' && $log->employee) {
+                        $actorName = trim((string) ($log->employee->full_name ?? ''));
                         if ($actorName === '') {
-                            $actorName = (string) ($log->user->username ?? $log->user->email ?? '');
+                            $actorName = (string) ($log->employee->empname ?? $log->employee->email ?? '');
                         }
                     }
 
                     return [
                         'id' => $log->id,
-                        'user_id' => $log->user_id,
+                        'employee_id' => $log->employee_id,
                         'actor_name' => $actorName !== '' ? $actorName : null,
                         'action' => $log->action,
                         'entity_type' => $log->entity_type,
@@ -387,9 +387,9 @@ class DashboardController extends Controller
     private function countUsersByActive(bool $active): int
     {
         try {
-            if (!Schema::hasTable('users')) return 0;
-            if (!Schema::hasColumn('users', 'is_active')) return 0;
-            return (int) DB::table('users')->where('is_active', $active ? 1 : 0)->count();
+            if (!Schema::hasTable('employees')) return 0;
+            if (!Schema::hasColumn('employees', 'is_active')) return 0;
+            return (int) DB::table('employees')->where('is_active', $active ? 1 : 0)->count();
         } catch (\Throwable $e) {
             return 0;
         }

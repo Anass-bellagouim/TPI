@@ -30,12 +30,12 @@ class DocumentController extends Controller
             if ($user) {
                 $actorName = trim((string) ($user->full_name ?? ''));
                 if ($actorName === '') {
-                    $actorName = (string) ($user->username ?? $user->email ?? '');
+                    $actorName = (string) ($user->empname ?? $user->email ?? '');
                 }
             }
 
             ActivityLog::create([
-                'user_id' => $user?->id,
+                'employee_id' => $user?->id,
                 'actor_name' => $actorName ?: null,
                 'action' => $action,
                 'entity_type' => 'document',
@@ -62,7 +62,7 @@ class DocumentController extends Controller
                 'judge_id',
                 'division',
                 'case_type_id',
-                'user_id',
+                'employee_id',
                 'keyword',
                 'original_filename',
                 'file_path',
@@ -143,7 +143,7 @@ class DocumentController extends Controller
 
         $doc = new Document();
         $doc->fill($data);
-        $doc->user_id = $request->user()?->id;
+        $doc->employee_id = $request->user()?->id;
 
         $doc->original_filename = $pdf->getClientOriginalName();
         $doc->file_path = $path;
@@ -171,7 +171,7 @@ class DocumentController extends Controller
                 'judge_id',
                 'division',
                 'case_type_id',
-                'user_id',
+                'employee_id',
                 'keyword',
                 'original_filename',
                 'file_path',
@@ -223,7 +223,7 @@ class DocumentController extends Controller
                 'judge_id',
                 'division',
                 'case_type_id',
-                'user_id',
+                'employee_id',
                 'keyword',
                 'status',
                 'extract_status',

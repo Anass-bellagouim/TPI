@@ -20,7 +20,7 @@ class Document extends Model
         'extract_error',
         'division',
         'case_type_id',
-        'user_id',
+        'employee_id',
         'keyword',
     ];
 
@@ -41,8 +41,8 @@ class Document extends Model
         return $this->belongsTo(CaseType::class);
     }
 
-    public function user()
+    public function employee()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Employee::class);
     }
 }

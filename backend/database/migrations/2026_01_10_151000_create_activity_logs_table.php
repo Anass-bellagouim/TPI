@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('activity_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('employee_id')->nullable()->constrained('employees')->nullOnDelete();
             $table->string('actor_name')->nullable();
             $table->string('action', 20);
             $table->string('entity_type', 50);

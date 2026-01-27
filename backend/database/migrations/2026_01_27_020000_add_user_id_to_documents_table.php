@@ -7,24 +7,24 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            if (!Schema::hasColumn('documents', 'employee_id')) {
+        if (Schema::hasTable('documents') && !Schema::hasColumn('documents', 'employee_id')) {
+            Schema::table('documents', function (Blueprint $table) {
                 $table->foreignId('employee_id')
                     ->nullable()
+                    ->after('case_type_id')
                     ->constrained('employees')
                     ->cascadeOnUpdate()
-                    ->nullOnDelete()
-                    ->after('case_type_id');
-            }
-        });
+                    ->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            if (Schema::hasColumn('documents', 'employee_id')) {
+        if (Schema::hasTable('documents') && Schema::hasColumn('documents', 'employee_id')) {
+            Schema::table('documents', function (Blueprint $table) {
                 $table->dropConstrainedForeignId('employee_id');
-            }
-        });
+            });
+        }
     }
 };

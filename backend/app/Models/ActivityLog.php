@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ActivityLog extends Model
 {
     protected $fillable = [
-        'user_id',
+        'employee_id',
         'actor_name',
         'action',
         'entity_type',
@@ -15,8 +15,8 @@ class ActivityLog extends Model
         'message',
     ];
 
-    public function user()
+    public function employee()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Employee::class);
     }
 }

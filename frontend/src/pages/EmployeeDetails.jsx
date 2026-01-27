@@ -20,8 +20,8 @@ export default function EmployeeDetails() {
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
-    username: "",
-    role: "user",
+    empname: "",
+    role: "employee",
     email: "",
   });
 
@@ -31,7 +31,7 @@ export default function EmployeeDetails() {
     const fn = employee?.first_name || "";
     const ln = employee?.last_name || "";
     const built = `${fn} ${ln}`.trim();
-    return employee?.full_name || built || employee?.username || "";
+    return employee?.full_name || built || employee?.empname || "";
   }, [employee]);
 
   const isAdmin = String(form.role || "").toLowerCase() === "admin";
@@ -62,8 +62,8 @@ export default function EmployeeDetails() {
       setForm({
         first_name: u?.first_name || "",
         last_name: u?.last_name || "",
-        username: u?.username || "",
-        role: u?.role || "user",
+        empname: u?.empname || "",
+        role: u?.role || "employee",
         email: u?.email || "",
       });
     } catch (e) {
@@ -79,7 +79,7 @@ export default function EmployeeDetails() {
     }
   }
 
-  // ✅ إذا تبدّل الدور إلى user، نحيد البريد من state باش ما يبقاش يتصيفط
+  // ✅ إذا تبدّل الدور إلى employee، نحيد البريد من state باش ما يبقاش يتصيفط
   useEffect(() => {
     if (!isAdmin && form.email) {
       setForm((p) => ({ ...p, email: "" }));
@@ -103,8 +103,8 @@ export default function EmployeeDetails() {
       const payload = {
         first_name: form.first_name?.trim() || "",
         last_name: form.last_name?.trim() || "",
-        username: form.username?.trim() || "",
-        role: form.role || "user",
+        empname: form.empname?.trim() || "",
+        role: form.role || "employee",
         ...(isAdmin ? { email: form.email?.trim() || "" } : {}),
       };
 
@@ -384,7 +384,7 @@ export default function EmployeeDetails() {
                 <div className="label">اسم المستخدم</div>
                 <input
                   className="input"
-                  value={form.username}
+                  value={form.empname}
                   onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
                   disabled={busy}
                 />
@@ -399,7 +399,7 @@ export default function EmployeeDetails() {
                   disabled={busy}
                 >
                   <option value="admin">admin</option>
-                  <option value="user">user</option>
+                  <option value="employee">employee</option>
                 </select>
               </div>
 

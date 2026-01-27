@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
+use App\Models\Employee;
 
 class PasswordResetController extends Controller
 {
@@ -27,7 +27,7 @@ class PasswordResetController extends Controller
 
         $email = trim((string) $data['email']);
 
-        $user = User::where('email', $email)->first();
+        $user = Employee::where('email', $email)->first();
 
         // 🔒 غير admin
         if (!$user || $user->role !== 'admin') {
@@ -71,7 +71,7 @@ class PasswordResetController extends Controller
 
         $email = trim((string) $data['email']);
 
-        $user = User::where('email', $email)->first();
+        $user = Employee::where('email', $email)->first();
 
         // 🔒 reset غير admin
         if (!$user || $user->role !== 'admin') {

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
@@ -13,17 +13,17 @@ class EmployeeController extends Controller
     /**
      * ✅ قواعد التحكم:
      * - Super Admin فقط يقدر يسير admins (delete/toggle/update/reset...).
-     * - Admin عادي يقدر يسير users فقط.
+     * - Admin عادي يقدر يسير employees فقط.
      * - ما يمكنش self-delete ولا self-deactivate.
      */
-    private function actor(): User
+    private function actor(): Employee
     {
-        /** @var User $u */
+        /** @var Employee $u */
         $u = auth()->user();
         return $u;
     }
 
-    private function assertCanManageTarget(User $target, string $action): void
+    private function assertCanManageTarget(Employee $target, string $action): void
     {
         $actor = $this->actor();
 
@@ -64,12 +64,12 @@ class EmployeeController extends Controller
             $perPage = 10;
         }
 
-        $q = User::query()
+        $q = Employee::query()
             ->select([
                 'id',
                 'first_name',
                 'last_name',
-                'username',
+                'empname',
                 'email',
                 'role',
                 'is_active',
@@ -80,14 +80,14 @@ class EmployeeController extends Controller
             $q->where(function ($qq) use ($search) {
                 $qq->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('empname', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
         $page = $q->orderByDesc('id')->paginate($perPage);
 
-        $page->getCollection()->transform(function (User $u) {
+        $page->getCollection()->transform(function (Employee $u) {
             return $this->shapeUser($u);
         });
 
@@ -97,15 +97,24 @@ class EmployeeController extends Controller
     // POST /api/admin/employees
     public function store(Request $request)
     {
+        // Backward-compat: accept username and map to empname
+        if (!$request->has('empname') && $request->has('username')) {
+            $request->merge(['empname' => $request->input('username')]);
+        }
+        // Backward-compat: accept role=user and map to employee
+        if ($request->input('role') === 'user') {
+            $request->merge(['role' => 'employee']);
+        }
+
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name'  => ['required', 'string', 'max:255'],
-            'username'   => ['required', 'string', 'max:255', 'unique:users,username'],
+            'empname'   => ['required', 'string', 'max:255', 'unique:employees,empname'],
 
             // email nullable عامة
-            'email'      => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'email'      => ['nullable', 'email', 'max:255', 'unique:employees,email'],
 
-            'role'       => ['required', Rule::in(['admin', 'user'])],
+            'role'       => ['required', Rule::in(['admin', 'employee'])],
 
             // password nullable هنا (غادي نفرضه حسب role)
             'password'   => ['nullable', 'string', 'min:6', 'confirmed'],
@@ -123,8 +132,8 @@ class EmployeeController extends Controller
             }
         }
 
-        if (($data['role'] ?? null) === 'user') {
-            // user: بلا email
+        if (($data['role'] ?? null) === 'employee') {
+            // employee: بلا email
             $data['email'] = null;
 
             // default password إذا ما تعطاتش
@@ -133,10 +142,10 @@ class EmployeeController extends Controller
             }
         }
 
-        $u = new User();
+        $u = new Employee();
         $u->first_name = $data['first_name'];
         $u->last_name  = $data['last_name'];
-        $u->username   = $data['username'];
+        $u->empname   = $data['empname'];
         $u->email      = $data['email'] ?? null;
         $u->role       = $data['role'];
         $u->password   = Hash::make($data['password']);
@@ -156,7 +165,7 @@ class EmployeeController extends Controller
     }
 
     // GET /api/admin/employees/{user}
-    public function show(User $user)
+    public function show(Employee $user)
     {
         // show مسموح حتى على admin (غير read)
         return response()->json([
@@ -165,23 +174,32 @@ class EmployeeController extends Controller
     }
 
     // PATCH /api/admin/employees/{user}
-    public function update(Request $request, User $user)
+    public function update(Request $request, Employee $user)
     {
+        // Backward-compat: accept username and map to empname
+        if (!$request->has('empname') && $request->has('username')) {
+            $request->merge(['empname' => $request->input('username')]);
+        }
+        // Backward-compat: accept role=user and map to employee
+        if ($request->input('role') === 'user') {
+            $request->merge(['role' => 'employee']);
+        }
+
         // ✅ منع تعديل admins من غير super admin
         $this->assertCanManageTarget($user, 'update');
 
         $data = $request->validate([
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name'  => ['sometimes', 'string', 'max:255'],
-            'username'   => ['sometimes', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
-            'email'      => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'       => ['sometimes', Rule::in(['admin', 'user'])],
+            'empname'   => ['sometimes', 'string', 'max:255', Rule::unique('employees', 'empname')->ignore($user->id)],
+            'email'      => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('employees', 'email')->ignore($user->id)],
+            'role'       => ['sometimes', Rule::in(['admin', 'employee'])],
             'is_active'  => ['sometimes', 'boolean'],
         ]);
 
         if (array_key_exists('first_name', $data)) $user->first_name = $data['first_name'];
         if (array_key_exists('last_name', $data))  $user->last_name  = $data['last_name'];
-        if (array_key_exists('username', $data))   $user->username   = $data['username'];
+        if (array_key_exists('empname', $data))   $user->empname   = $data['empname'];
 
         // role update
         if (array_key_exists('role', $data)) {
@@ -195,10 +213,10 @@ class EmployeeController extends Controller
 
         /**
          * email rules:
-         * - user => null دائماً
+         * - employee => null دائماً
          * - admin => email لازم
          */
-        if (($user->role ?? null) === 'user') {
+        if (($user->role ?? null) === 'employee') {
             $user->email = null;
         } else {
             // admin: إذا جا email فـ request
@@ -238,7 +256,7 @@ class EmployeeController extends Controller
      * PATCH /api/admin/employees/{user}/password
      * Reset default password = 123456 + revoke tokens
      */
-    public function resetPassword(Request $request, User $user)
+    public function resetPassword(Request $request, Employee $user)
     {
         // ✅ نفس القاعدة: admin accounts غير super admin يقدر يمسهم
         $this->assertCanManageTarget($user, 'reset_password');
@@ -265,7 +283,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function toggleActive(User $user)
+    public function toggleActive(Employee $user)
     {
         $this->assertCanManageTarget($user, 'toggle_active');
 
@@ -287,7 +305,7 @@ class EmployeeController extends Controller
     }
 
     // DELETE /api/admin/employees/{user}
-    public function destroy(User $user)
+    public function destroy(Employee $user)
     {
         $this->assertCanManageTarget($user, 'delete');
 
@@ -303,14 +321,14 @@ class EmployeeController extends Controller
     /**
      * ✅ Formatter واحد للـ API
      */
-    private function shapeUser(User $u): array
+    private function shapeUser(Employee $u): array
     {
         return [
             'id' => $u->id,
             'full_name' => $this->fullName($u),
             'first_name' => $u->first_name,
             'last_name' => $u->last_name,
-            'username' => $u->username,
+            'empname' => $u->empname,
             'email' => $u->email,
             'role' => $u->role,
             'is_active' => (bool) ($u->is_active ?? true),
@@ -320,7 +338,7 @@ class EmployeeController extends Controller
         ];
     }
 
-    private function fullName(User $u): string
+    private function fullName(Employee $u): string
     {
         return trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''));
     }

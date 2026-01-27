@@ -191,8 +191,8 @@ export default function Employees() {
 
                     <td>{u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "—"}</td>
 
-                    <td>{u.username || "—"}</td>
-                    <td>{u.role || "user"}</td>
+                    <td>{u.empname || "—"}</td>
+                    <td>{u.role || "employee"}</td>
 
                     <td>
                       <span

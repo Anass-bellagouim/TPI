@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
 
 class AdminSeeder extends Seeder
@@ -11,7 +11,7 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['username' => 'admin'],
+            ['empname' => 'admin'],
             [
                 'first_name' => 'Admin',
                 'last_name'  => 'System',
