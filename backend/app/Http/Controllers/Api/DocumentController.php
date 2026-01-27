@@ -368,7 +368,7 @@ class DocumentController extends Controller
     /**
      * DELETE /api/documents/{id}
      */
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id)
     {
         $doc = Document::findOrFail($id);
 
