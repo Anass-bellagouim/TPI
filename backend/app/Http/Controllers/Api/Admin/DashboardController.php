@@ -285,6 +285,7 @@ class DashboardController extends Controller
 
             return [
                 'id' => $d->id,
+                'entity_id' => $d->id,
                 'division' => $divisionName !== '' ? $divisionName : null,
                 'type_or_keyword' => $typeOrKeyword,
                 'type' => $d->type,
@@ -297,6 +298,7 @@ class DashboardController extends Controller
                 'updated_at' => $d->updated_at,
                 'has_file' => $hasFile,
                 'download_url' => url("/api/documents/{$d->id}/download"),
+                'is_deleted' => false,
             ];
         })->toArray();
 
@@ -340,6 +342,79 @@ class DashboardController extends Controller
                 ->toArray();
         }
 
+        $deletedDocs = [];
+        if (Schema::hasTable('activity_logs')) {
+            $deletedDocs = ActivityLog::query()
+                ->with(['employee:id,first_name,last_name,empname'])
+                ->select([
+                    'id',
+                    'employee_id',
+                    'actor_name',
+                    'action',
+                    'entity_type',
+                    'entity_id',
+                    'message',
+                    'created_at',
+                ])
+                ->where('entity_type', 'document')
+                ->where('action', 'deleted')
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get()
+                ->map(function ($log) {
+                    $actorName = trim((string) ($log->actor_name ?? ''));
+                    if ($actorName === '' && $log->employee) {
+                        $actorName = trim((string) ($log->employee->full_name ?? ''));
+                        if ($actorName === '') {
+                            $actorName = (string) ($log->employee->empname ?? $log->employee->email ?? '');
+                        }
+                    }
+
+                    $snapshot = null;
+                    if (is_string($log->message) && str_starts_with(trim($log->message), '{')) {
+                        $decoded = json_decode($log->message, true);
+                        if (is_array($decoded)) $snapshot = $decoded;
+                    }
+
+                    return [
+                        'id' => 'deleted-' . $log->id,
+                        'entity_id' => $log->entity_id,
+                        'division' => $snapshot['division'] ?? null,
+                        'type_or_keyword' => $snapshot['type'] ?? $snapshot['keyword'] ?? $log->message ?: null,
+                        'type' => $snapshot['type'] ?? null,
+                        'keyword' => $snapshot['keyword'] ?? null,
+                        'case_number' => $snapshot['case_number'] ?? null,
+                        'judgement_number' => $snapshot['judgement_number'] ?? null,
+                        'judge_name' => $snapshot['judge_name'] ?? null,
+                        'status' => 'deleted',
+                        'created_at' => $log->created_at,
+                        'updated_at' => null,
+                        'has_file' => false,
+                        'download_url' => null,
+                        'is_deleted' => true,
+                        'deleted_by' => $actorName !== '' ? $actorName : null,
+                        'deleted_by_id' => $log->employee_id,
+                        'deleted_at' => $log->created_at,
+                        'deleted_message' => $snapshot['original_filename'] ?? $log->message,
+                        'added_by' => $snapshot['created_by_name'] ?? null,
+                        'added_by_id' => $snapshot['created_by_id'] ?? null,
+                        'added_at' => $snapshot['created_at'] ?? null,
+                        'updated_by' => $snapshot['updated_by_name'] ?? null,
+                        'updated_by_id' => $snapshot['updated_by_id'] ?? null,
+                        'updated_at' => $snapshot['updated_at'] ?? null,
+                    ];
+                })
+                ->toArray();
+        }
+
+        $latestCombined = array_merge($latest, $deletedDocs);
+        usort($latestCombined, function ($a, $b) {
+            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
+            $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
+            return $tb <=> $ta;
+        });
+        $latestCombined = array_slice($latestCombined, 0, 10);
+
         $payload = [
             'kpis' => [
                 'total_documents' => $totalDocuments,
@@ -360,7 +435,7 @@ class DashboardController extends Controller
                 'by_status' => $byStatus,
                 'processing_time' => $processingTime,
             ],
-            'latest' => $latest,
+            'latest' => $latestCombined,
             'logs' => $logs,
             'meta' => [
                 'range_days' => $rangeDays,

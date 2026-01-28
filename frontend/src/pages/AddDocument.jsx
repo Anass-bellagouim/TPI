@@ -156,7 +156,7 @@ function AutocompleteRemote({ value, onChange, fetchOptions, placeholder, disabl
   );
 }
 
-function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabled }) {
+function CaseTypeAutocompleteGlobal({ divisions, divisionId, value, onChange, onPick, disabled }) {
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -187,7 +187,7 @@ function CaseTypeAutocompleteGlobal({ divisions, value, onChange, onPick, disabl
       try {
         setLoading(true);
         const res = await api.get("/lookups/case-types", {
-          params: { q: q || "", active: 1 },
+          params: { q: q || "", active: 1, division_id: divisionId || undefined },
         });
         const data = res.data?.data || [];
         setItems(Array.isArray(data) ? data : []);
@@ -663,6 +663,7 @@ export default function AddDocument() {
                   <div className="label">نوع القضية</div>
                   <CaseTypeAutocompleteGlobal
                     divisions={divisions}
+                    divisionId={divisionId}
                     value={caseTypeCode}
                     onChange={(code) => {
                       setCaseTypeCode(code);

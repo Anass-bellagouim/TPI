@@ -7,6 +7,7 @@ use App\Jobs\ExtractDocumentTextJob;
 use App\Models\ActivityLog;
 use App\Models\CaseType;
 use App\Models\Document;
+use App\Models\Employee;
 use App\Models\Judge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +23,7 @@ class DocumentController extends Controller
         return max(1, min($pp, 100));
     }
 
-    private function logDocumentAction(Request $request, Document $doc, string $action, ?string $message = null): void
+    private function logDocumentAction(Request $request, Document $doc, string $action, $message = null): void
     {
         try {
             $user = $request->user();
@@ -34,14 +35,20 @@ class DocumentController extends Controller
                 }
             }
 
-            ActivityLog::create([
+            $payload = [
                 'employee_id' => $user?->id,
                 'actor_name' => $actorName ?: null,
                 'action' => $action,
                 'entity_type' => 'document',
                 'entity_id' => $doc->id,
                 'message' => $message,
-            ]);
+            ];
+
+            if (is_array($message)) {
+                $payload['message'] = json_encode($message, JSON_UNESCAPED_UNICODE);
+            }
+
+            ActivityLog::create($payload);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -288,7 +295,54 @@ class DocumentController extends Controller
     public function show(int $id)
     {
         $doc = Document::findOrFail($id);
-        return response()->json($doc);
+        $logs = [];
+        try {
+            $logs = ActivityLog::query()
+                ->with(['employee:id,first_name,last_name,empname'])
+                ->select([
+                    'id',
+                    'employee_id',
+                    'actor_name',
+                    'action',
+                    'entity_type',
+                    'entity_id',
+                    'message',
+                    'created_at',
+                ])
+                ->where('entity_type', 'document')
+                ->where('entity_id', $doc->id)
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get()
+                ->map(function ($log) {
+                    $actorName = trim((string) ($log->actor_name ?? ''));
+                    if ($actorName === '' && $log->employee) {
+                        $actorName = trim((string) ($log->employee->full_name ?? ''));
+                        if ($actorName === '') {
+                            $actorName = (string) ($log->employee->empname ?? $log->employee->email ?? '');
+                        }
+                    }
+
+                    return [
+                        'id' => $log->id,
+                        'employee_id' => $log->employee_id,
+                        'actor_name' => $actorName !== '' ? $actorName : null,
+                        'action' => $log->action,
+                        'entity_type' => $log->entity_type,
+                        'entity_id' => $log->entity_id,
+                        'message' => $log->message,
+                        'created_at' => $log->created_at,
+                    ];
+                })
+                ->toArray();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json([
+            'data' => $doc,
+            'logs' => $logs,
+        ]);
     }
 
     /**
@@ -376,7 +430,57 @@ class DocumentController extends Controller
             Storage::disk('public')->delete($doc->file_path);
         }
 
-        $this->logDocumentAction($request, $doc, 'deleted', $doc->original_filename);
+        $createdByName = null;
+        if ($doc->employee_id) {
+            $creator = Employee::query()->select(['id', 'first_name', 'last_name', 'empname'])->find($doc->employee_id);
+            if ($creator) {
+                $createdByName = trim((string) ($creator->full_name ?? ''));
+                if ($createdByName === '') {
+                    $createdByName = (string) ($creator->empname ?? $creator->email ?? '');
+                }
+            }
+        }
+
+        $lastUpdated = ActivityLog::query()
+            ->with(['employee:id,first_name,last_name,empname'])
+            ->where('entity_type', 'document')
+            ->where('action', 'updated')
+            ->where('entity_id', $doc->id)
+            ->orderByDesc('id')
+            ->first();
+
+        $updatedByName = null;
+        $updatedById = null;
+        $updatedAt = null;
+        if ($lastUpdated) {
+            $updatedById = $lastUpdated->employee_id;
+            $updatedByName = trim((string) ($lastUpdated->actor_name ?? ''));
+            if ($updatedByName === '' && $lastUpdated->employee) {
+                $updatedByName = trim((string) ($lastUpdated->employee->full_name ?? ''));
+                if ($updatedByName === '') {
+                    $updatedByName = (string) ($lastUpdated->employee->empname ?? $lastUpdated->employee->email ?? '');
+                }
+            }
+            $updatedAt = $lastUpdated->created_at;
+        }
+
+        $snapshot = [
+            'division' => $doc->division,
+            'type' => $doc->type,
+            'keyword' => $doc->keyword,
+            'case_number' => $doc->case_number,
+            'judgement_number' => $doc->judgement_number,
+            'judge_name' => $doc->judge_name,
+            'created_at' => $doc->created_at,
+            'created_by_id' => $doc->employee_id,
+            'created_by_name' => $createdByName,
+            'updated_by_id' => $updatedById,
+            'updated_by_name' => $updatedByName,
+            'updated_at' => $updatedAt,
+            'original_filename' => $doc->original_filename,
+        ];
+
+        $this->logDocumentAction($request, $doc, 'deleted', $snapshot);
 
         $doc->delete();
 

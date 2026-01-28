@@ -179,7 +179,7 @@ export default function AddEmployee() {
                 className="input"
                 value={form.empname}
                 onChange={(e) => setForm((p) => ({ ...p, empname: e.target.value }))}
-                placeholder="مثال: anass_aitbelagouim"
+                placeholder="مثال: ahmed"
                 required
                 disabled={loading}
                 autoComplete="off"

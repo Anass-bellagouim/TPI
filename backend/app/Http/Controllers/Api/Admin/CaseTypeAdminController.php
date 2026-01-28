@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\CaseType;
 use App\Models\Division;
 use Illuminate\Http\Request;
@@ -10,6 +11,31 @@ use Illuminate\Validation\Rule;
 
 class CaseTypeAdminController extends Controller
 {
+    private function logCaseTypeAction(Request $request, CaseType $caseType, string $action, ?string $message = null): void
+    {
+        try {
+            $user = $request->user();
+            $actorName = null;
+            if ($user) {
+                $actorName = trim((string) ($user->full_name ?? ''));
+                if ($actorName === '') {
+                    $actorName = (string) ($user->empname ?? $user->email ?? '');
+                }
+            }
+
+            ActivityLog::create([
+                'employee_id' => $user?->id,
+                'actor_name' => $actorName ?: null,
+                'action' => $action,
+                'entity_type' => 'case_type',
+                'entity_id' => $caseType->id,
+                'message' => $message,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
     // GET /api/admin/case-types?division_id=&q=&active=
     public function index(Request $request)
     {
@@ -65,6 +91,8 @@ class CaseTypeAdminController extends Controller
             'sort_order' => $data['sort_order'] ?? 0,
         ]);
 
+        $this->logCaseTypeAction($request, $row, 'created', $row->code . ' - ' . $row->name);
+
         return response()->json([
             'message' => 'تمت إضافة نوع القضية بنجاح.',
             'data' => $row->load('division:id,name'),
@@ -93,13 +121,20 @@ class CaseTypeAdminController extends Controller
             ], 422);
         }
 
-        $caseType->update([
+        $caseType->fill([
             'division_id' => (int) $data['division_id'],
             'code' => $data['code'],
             'name' => trim($data['name']),
             'is_active' => array_key_exists('is_active', $data) ? (bool)$data['is_active'] : $caseType->is_active,
             'sort_order' => array_key_exists('sort_order', $data) ? (int)$data['sort_order'] : $caseType->sort_order,
         ]);
+
+        $changed = $caseType->isDirty();
+        $caseType->save();
+
+        if ($changed) {
+            $this->logCaseTypeAction($request, $caseType, 'updated', $caseType->code . ' - ' . $caseType->name);
+        }
 
         return response()->json([
             'message' => 'تم تحديث نوع القضية بنجاح.',
@@ -108,9 +143,11 @@ class CaseTypeAdminController extends Controller
     }
 
     // DELETE /api/admin/case-types/{caseType}
-    public function destroy(CaseType $caseType)
+    public function destroy(Request $request, CaseType $caseType)
     {
         $caseType->delete();
+
+        $this->logCaseTypeAction($request, $caseType, 'deleted', $caseType->code . ' - ' . $caseType->name);
 
         return response()->json([
             'message' => 'تم حذف نوع القضية بنجاح.',
