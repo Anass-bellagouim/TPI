@@ -47,6 +47,13 @@ export default function Dashboard() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [details, setDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [missingOpen, setMissingOpen] = useState(false);
+  const [missingYears, setMissingYears] = useState([]);
+  const [missingYear, setMissingYear] = useState("");
+  const [missingYearsLoading, setMissingYearsLoading] = useState(false);
+  const [missingLoading, setMissingLoading] = useState(false);
+  const [missingError, setMissingError] = useState("");
+  const [missingList, setMissingList] = useState([]);
 
   async function fetchDashboard() {
     setError("");
@@ -77,6 +84,15 @@ export default function Dashboard() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [detailsOpen]);
+
+  useEffect(() => {
+    if (!missingOpen) return;
+    function onKeyDown(e) {
+      if (e.key === "Escape") setMissingOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [missingOpen]);
 
   async function onShowDetails(d) {
     if (d?.is_deleted) {
@@ -132,6 +148,71 @@ export default function Dashboard() {
     } finally {
       setDetailsLoading(false);
     }
+  }
+
+  async function fetchMissing(yearValue) {
+    const year = String(yearValue || "").trim();
+    if (!/^\d{4}$/.test(year)) {
+      setMissingError("Ø§Ù„Ù…Ø±Ø¬Ùˆ Ø§Ø®ØªÙŠØ§Ø± Ø³Ù†Ø© ØµØ­ÙŠØ­Ø©.");
+      setMissingList([]);
+      return;
+    }
+
+    setMissingError("");
+    try {
+      setMissingLoading(true);
+      const res = await api.get("/documents/judgement-missing", { params: { year } });
+      const data = res.data || {};
+      setMissingList(Array.isArray(data.missing) ? data.missing : []);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        (typeof e?.response?.data === "string" ? e.response.data : null) ||
+        "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ù„Ø§Ø¦Ø­Ø© Ø§Ù„Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù†Ø§Ù‚ØµØ©.";
+      setMissingError(msg);
+      setMissingList([]);
+    } finally {
+      setMissingLoading(false);
+    }
+  }
+
+  async function openMissing() {
+    setMissingOpen(true);
+    setMissingError("");
+    setMissingYearsLoading(true);
+    try {
+      const res = await api.get("/documents/judgement-years");
+      const years = Array.isArray(res.data?.years) ? res.data.years : [];
+      setMissingYears(years);
+      const currentYear = String(new Date().getFullYear());
+      const initial = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
+      setMissingYear(initial);
+      await fetchMissing(initial);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        (typeof e?.response?.data === "string" ? e.response.data : null) ||
+        "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ø§Ù„Ø³Ù†ÙˆØ§Øª.";
+      setMissingError(msg);
+      setMissingYears([]);
+      setMissingList([]);
+    } finally {
+      setMissingYearsLoading(false);
+    }
+  }
+
+  function handleMissingDownload() {
+    const rows = missingList.length ? missingList : [];
+    const content = rows.length ? rows.join("\n") : "Ø§Ù„Ù„Ø§Ø¦Ø­Ø© ÙØ§Ø±ØºØ©.";
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `missing-judgements-${missingYear || "year"}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   const kpis = payload?.kpis || {};
@@ -237,6 +318,9 @@ export default function Dashboard() {
             <Link className="btn btnSecondary" to="/search">
               الذهاب إلى البحث
             </Link>
+            <button className="btn btnSecondary" type="button" onClick={openMissing}>
+              {"\u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0634\u0627\u063a\u0631\u0629"}
+            </button>
             <Link className="btn btnPrimary" to="/add">
               إضافة وثيقة
             </Link>
@@ -412,6 +496,152 @@ export default function Dashboard() {
               )}
               <button className="btn btnSecondary" type="button" onClick={() => setDetailsOpen(false)}>
                 {"إغلاق"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {missingOpen && (
+        <div
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMissingOpen(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            zIndex: 9999,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Missing judgement numbers"
+            style={{
+              width: "min(640px, 100%)",
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid var(--border)",
+              boxShadow: "0 20px 60px rgba(0,0,0,.2)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                borderBottom: "1px solid var(--border)",
+                background: "linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0))",
+              }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "rgba(16,185,129,.14)",
+                  color: "#059669",
+                  fontWeight: 900,
+                }}
+              >
+                #
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>
+                  {"\u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0634\u0627\u063a\u0631\u0629"}
+                </div>
+                <div style={{ color: "var(--muted)", marginTop: 3, lineHeight: 1.5 }}>
+                  {"\u0644\u0627\u0626\u062d\u0629 \u0627\u0644\u0623\u062d\u0643\u0627\u0645 \u063a\u064a\u0631 \u0627\u0644\u0645\u0633\u062c\u0644\u0629"}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: 16 }}>
+              <div className="rowActions" style={{ justifyContent: "flex-start", gap: 10, marginBottom: 12 }}>
+                <div className="field" style={{ maxWidth: 180 }}>
+                  <div className="label">{"\u0627\u0644\u0633\u0646\u0629"}</div>
+                  <select
+                    className="select"
+                    value={missingYear}
+                    disabled={missingYearsLoading}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setMissingYear(v);
+                      fetchMissing(v);
+                    }}
+                  >
+                    {!missingYearsLoading && missingYears.length === 0 && (
+                      <option value={missingYear || String(new Date().getFullYear())}>
+                        {missingYear || String(new Date().getFullYear())}
+                      </option>
+                    )}
+                    {missingYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {missingError && (
+                <div className="alert alertError" style={{ marginBottom: 12 }}>
+                  <strong>{"\u062e\u0637\u0623:"}</strong> {missingError}
+                </div>
+              )}
+
+              <div className="tableWrap" style={{ maxHeight: 320, overflowY: "auto", overflowX: "hidden" }}>
+                <table className="table" style={{ textAlign: "center" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "center" }}>{"\u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0646\u0627\u0642\u0635"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {missingLoading && (
+                      <tr>
+                        <td style={{ color: "var(--muted)", textAlign: "center" }}>
+                          {"\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0645\u064a\u0644..."}
+                        </td>
+                      </tr>
+                    )}
+
+                    {!missingLoading &&
+                      missingList.map((x) => (
+                        <tr key={x}>
+                          <td style={{ textAlign: "center" }}>{x}</td>
+                        </tr>
+                      ))}
+
+                    {!missingLoading && missingList.length === 0 && (
+                      <tr>
+                        <td style={{ color: "var(--muted)", textAlign: "center" }}>
+                          {"\u0644\u0627 \u062a\u0648\u062c\u062f \u0623\u0631\u0642\u0627\u0645 \u0634\u0627\u063a\u0631\u0629."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ padding: 16, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button className="btn btnSecondary" type="button" disabled={!missingList.length} onClick={handleMissingDownload}>
+                {"\u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0642\u0627\u0626\u0645\u0629"}
+              </button>
+              <button className="btn btnPrimary" type="button" onClick={() => setMissingOpen(false)}>
+                {"\u0625\u063a\u0644\u0627\u0642"}
               </button>
             </div>
           </div>

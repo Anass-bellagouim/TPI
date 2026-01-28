@@ -487,7 +487,81 @@ class DocumentController extends Controller
         return response()->json(['message' => 'تم حذف الوثيقة بنجاح']);
     }
 
+    
     /**
+     * GET /api/documents/judgement-missing?year=2026
+     */
+    public function judgementMissing(Request $request)
+    {
+        $year = trim((string) $request->query('year', ''));
+        if (!preg_match('/^\d{4}$/', $year)) {
+            return response()->json([
+                'message' => 'Invalid year.',
+            ], 422);
+        }
+
+        $rows = Document::query()
+            ->select(['judgement_number'])
+            ->whereNotNull('judgement_number')
+            ->where('judgement_number', 'like', "%/{$year}")
+            ->get();
+
+        $seen = [];
+        $max = 0;
+        foreach ($rows as $r) {
+            $v = trim((string) $r->judgement_number);
+            if ($v === '') continue;
+            if (!preg_match('/^(\d+)\/(\d{4})$/', $v, $m)) continue;
+            if ($m[2] !== $year) continue;
+            $n = (int) $m[1];
+            if ($n <= 0) continue;
+            $seen[$n] = true;
+            if ($n > $max) $max = $n;
+        }
+
+        $width = max(2, strlen((string) $max));
+        $missing = [];
+        for ($i = 1; $i <= $max; $i++) {
+            if (!isset($seen[$i])) {
+                $missing[] = str_pad((string) $i, $width, '0', STR_PAD_LEFT) . '/' . $year;
+            }
+        }
+
+        return response()->json([
+            'year' => $year,
+            'max' => $max,
+            'missing' => $missing,
+            'count' => count($missing),
+        ]);
+    }
+
+    /**
+     * GET /api/documents/judgement-years
+     */
+    public function judgementYears()
+    {
+        $rows = Document::query()
+            ->select(['judgement_number'])
+            ->whereNotNull('judgement_number')
+            ->get();
+
+        $years = [];
+        foreach ($rows as $r) {
+            $v = trim((string) $r->judgement_number);
+            if ($v === '') continue;
+            if (!preg_match('/^(\d+)\/(\d{4})$/', $v, $m)) continue;
+            $years[$m[2]] = true;
+        }
+
+        $list = array_keys($years);
+        rsort($list, SORT_STRING);
+
+        return response()->json([
+            'years' => $list,
+        ]);
+    }
+
+/**
      * GET /api/documents/{id}/download
      */
     public function download(int $id)

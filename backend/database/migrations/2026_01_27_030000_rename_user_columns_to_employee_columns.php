@@ -38,13 +38,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('employees', function (Blueprint $table) {
-                try {
-                    $table->unique('empname');
-                } catch (\Throwable $e) {
-                    // Ignore if the index already exists
+            // add unique index for empname only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.statistics')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'employees')
+                    ->where('index_name', 'employees_empname_unique')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('employees', function (Blueprint $table) {
+                        $table->unique('empname');
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the index
+            }
 
             // role: user -> employee
             if (Schema::hasColumn('employees', 'role')) {
@@ -82,13 +90,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('documents', function (Blueprint $table) {
-                try {
-                    $table->foreign('employee_id')->references('id')->on('employees')->cascadeOnUpdate()->nullOnDelete();
-                } catch (\Throwable $e) {
-                    // Ignore if the FK already exists
+            // add FK only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.table_constraints')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'documents')
+                    ->where('constraint_name', 'documents_employee_id_foreign')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('documents', function (Blueprint $table) {
+                        $table->foreign('employee_id')->references('id')->on('employees')->cascadeOnUpdate()->nullOnDelete();
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the FK
+            }
         }
 
         // activity_logs: user_id -> employee_id
@@ -113,13 +129,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('activity_logs', function (Blueprint $table) {
-                try {
-                    $table->foreign('employee_id')->references('id')->on('employees')->nullOnDelete();
-                } catch (\Throwable $e) {
-                    // Ignore if the FK already exists
+            // add FK only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.table_constraints')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'activity_logs')
+                    ->where('constraint_name', 'activity_logs_employee_id_foreign')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('activity_logs', function (Blueprint $table) {
+                        $table->foreign('employee_id')->references('id')->on('employees')->nullOnDelete();
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the FK
+            }
         }
     }
 
@@ -155,13 +179,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('employees', function (Blueprint $table) {
-                try {
-                    $table->unique('username');
-                } catch (\Throwable $e) {
-                    // Ignore if the index already exists
+            // add unique index for username only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.statistics')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'employees')
+                    ->where('index_name', 'employees_username_unique')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('employees', function (Blueprint $table) {
+                        $table->unique('username');
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the index
+            }
 
             if (Schema::hasColumn('employees', 'role')) {
                 if (DB::getDriverName() === 'mysql') {
@@ -198,13 +230,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('documents', function (Blueprint $table) {
-                try {
-                    $table->foreign('user_id')->references('id')->on('employees')->cascadeOnUpdate()->nullOnDelete();
-                } catch (\Throwable $e) {
-                    // Ignore if the FK already exists
+            // add FK only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.table_constraints')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'documents')
+                    ->where('constraint_name', 'documents_user_id_foreign')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('documents', function (Blueprint $table) {
+                        $table->foreign('user_id')->references('id')->on('employees')->cascadeOnUpdate()->nullOnDelete();
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the FK
+            }
         }
 
         // activity_logs: employee_id -> user_id
@@ -229,13 +269,21 @@ return new class extends Migration {
                 });
             }
 
-            Schema::table('activity_logs', function (Blueprint $table) {
-                try {
-                    $table->foreign('user_id')->references('id')->on('employees')->nullOnDelete();
-                } catch (\Throwable $e) {
-                    // Ignore if the FK already exists
+            // add FK only if it doesn't already exist
+            try {
+                $exists = DB::table('information_schema.table_constraints')
+                    ->where('table_schema', DB::raw('DATABASE()'))
+                    ->where('table_name', 'activity_logs')
+                    ->where('constraint_name', 'activity_logs_user_id_foreign')
+                    ->exists();
+                if (!$exists) {
+                    Schema::table('activity_logs', function (Blueprint $table) {
+                        $table->foreign('user_id')->references('id')->on('employees')->nullOnDelete();
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore if we can't check/add the FK
+            }
         }
     }
 };

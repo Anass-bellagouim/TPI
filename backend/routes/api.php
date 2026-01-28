@@ -69,6 +69,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/documents', [DocumentController::class, 'index']);
     Route::post('/documents', [DocumentController::class, 'store']);
     Route::get('/documents/search', [DocumentController::class, 'search']);
+    Route::get('/documents/judgement-missing', [DocumentController::class, 'judgementMissing']);
+    Route::get('/documents/judgement-years', [DocumentController::class, 'judgementYears']);
     Route::get('/documents/{id}', [DocumentController::class, 'show']);
     Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
     Route::match(['put', 'patch'], '/documents/{id}', [DocumentController::class, 'update']);
