@@ -252,36 +252,36 @@ export default function AppShell() {
                 </div>
               )}
 
-              {/* لوحة الإدارة */}
+              {/* لوحة القيادة (زر مستقل) */}
+              {isAdmin && (
+                <div className="navGroup">
+                  <button
+                    type="button"
+                    className={`navGroupBtn ${isActive("/dashboard", { exact: true }) ? "active" : ""}`}
+                    onClick={() => go("/dashboard")}
+                  >
+                    لوحة القيادة
+                  </button>
+                </div>
+              )}
+
+              {/* الإدارة */}
               {isAdmin && (
                 <div className={`navGroup ${openGroup === "admin" ? "isOpen" : ""}`}>
                   <button
                     type="button"
                     className={`navGroupBtn ${
-                      isActive("/dashboard") || isActive("/divisions") || isActive("/case-types") || isActive("/judges")
-                        ? "active"
-                        : ""
+                      isActive("/divisions") || isActive("/case-types") || isActive("/judges") ? "active" : ""
                     }`}
                     onClick={() => setOpenGroup((v) => (v === "admin" ? "" : "admin"))}
                     aria-haspopup="menu"
                     aria-expanded={openGroup === "admin" ? "true" : "false"}
                   >
-                    لوحة الإدارة <Caret open={openGroup === "admin"} />
+                    الإدارة <Caret open={openGroup === "admin"} />
                   </button>
 
                   {openGroup === "admin" && (
                     <div className="navDrop" role="menu">
-                      <button
-                        className={`navDropItem ${isActive("/dashboard", { exact: true }) ? "active" : ""}`}
-                        type="button"
-                        onClick={() => go("/dashboard")}
-                        role="menuitem"
-                      >
-                        لوحة القيادة
-                      </button>
-
-                      <div className="navDropSep" />
-
                       <button className={`navDropItem ${isActive("/divisions") ? "active" : ""}`} type="button" onClick={() => go("/divisions")}>
                         إدارة الشعب
                       </button>
@@ -480,16 +480,12 @@ export default function AppShell() {
                 onClick={() => setDrawerGroup((v) => (v === "admin" ? "" : "admin"))}
                 aria-expanded={drawerGroup === "admin" ? "true" : "false"}
               >
-                <span>لوحة الإدارة</span>
+                <span>الإدارة</span>
                 <span className="drawerCaret">{drawerGroup === "admin" ? "▴" : "▾"}</span>
               </button>
 
               {drawerGroup === "admin" && (
                 <div className="drawerGroupItems">
-                  <button type="button" className={"drawerItem" + (isActive("/dashboard", { exact: true }) ? " active" : "")} onClick={() => goFromDrawer("/dashboard")}>
-                    لوحة القيادة
-                  </button>
-
                   <button type="button" className={"drawerItem" + (isActive("/divisions") ? " active" : "")} onClick={() => goFromDrawer("/divisions")}>
                     إدارة الشعب
                   </button>
@@ -503,6 +499,18 @@ export default function AppShell() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="drawerGroup">
+              <button
+                type="button"
+                className={"drawerGroupBtn" + (isActive("/dashboard", { exact: true }) ? " active" : "")}
+                onClick={() => goFromDrawer("/dashboard")}
+              >
+                <span>لوحة القيادة</span>
+              </button>
             </div>
           )}
 
