@@ -169,8 +169,8 @@ export default function AppShell() {
           >
             <img className="logo" src="/img/Logo.png" alt="وزارة العدل" loading="eager" />
             <div className="brand__titles">
-              <h1>المحكمة الابتدائية المغربية</h1>
-              <p>نظام إدارة الوثائق</p>
+              <h1>المحكمة الابتدائية بالعيون</h1>
+              <p>نظام إدارة الوثائق وأرشفة الملفات</p>
             </div>
           </div>
           <div>

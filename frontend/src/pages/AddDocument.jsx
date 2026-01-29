@@ -492,20 +492,27 @@ export default function AddDocument() {
     setError("");
     setInfo("");
 
-    if (!file) return setError("يجب اختيار ملف PDF قبل الرفع.");
+    if (!file) return setError("إضافة ملف PDF إجباري.");
     if (file.type !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
       return setError("يجب أن يكون الملف بصيغة PDF.");
     }
 
-    if (caseNumber.trim() && !extractCaseCodeFromFileNumber(caseNumber.trim())) {
+    if (!caseNumber.trim()) {
+      return setError("رقم الملف إجباري.");
+    }
+    if (!extractCaseCodeFromFileNumber(caseNumber.trim())) {
       return setError("رقم الملف يجب أن يكون مثل: 10021/2101/2026");
     }
-    if (judgementNumber.trim() && !extractJudgementParts(judgementNumber.trim())) {
+    if (!judgementNumber.trim()) {
+      return setError("رقم الحكم إجباري.");
+    }
+    if (!extractJudgementParts(judgementNumber.trim())) {
       return setError("رقم الحكم يجب أن يكون مثل: 12/2026");
     }
 
-    if (!divisionId) return setError("اختر الشعبة قبل الرفع.");
-    if (!caseTypeCode) return setError("اختر نوع القضية (بالاسم أو بالرمز) قبل الرفع.");
+    if (!divisionId) return setError("اختيار الشعبة إجباري.");
+    if (!caseTypeCode) return setError("اختيار نوع القضية إجباري.");
+    if (!judgeName.trim()) return setError("اسم القاضي إجباري.");
 
     const mismatch = validateCaseTypeMatchesFileNumber();
     if (mismatch) return setError(mismatch);
@@ -593,6 +600,7 @@ export default function AddDocument() {
                   type="file"
                   accept="application/pdf,.pdf"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  required
                   disabled={loading}
                 />
 
@@ -639,13 +647,14 @@ export default function AddDocument() {
               <div className="grid2">
                 <div className="field">
                   <div className="label">الشعبة</div>
-                  <select
-                    className="select"
-                    value={divisionId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      const d = divisions.find((x) => String(x.id) === String(id));
-                      setDivisionId(id);
+              <select
+                className="select"
+                value={divisionId}
+                required
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const d = divisions.find((x) => String(x.id) === String(id));
+                  setDivisionId(id);
                       setDivisionName(d?.name || "");
                     }}
                     disabled={loading}
@@ -695,6 +704,7 @@ export default function AddDocument() {
                     value={caseNumber}
                     onChange={(e) => setCaseNumber(e.target.value)}
                     placeholder="مثال: 10021/2101/2026"
+                    required
                     disabled={loading}
                   />
                   <div className={`hint ${fileHint.ok === true ? "hint--ok" : fileHint.ok === false ? "hint--bad" : ""}`}>
@@ -715,6 +725,7 @@ export default function AddDocument() {
                     value={judgementNumber}
                     onChange={(e) => setJudgementNumber(e.target.value)}
                     placeholder="مثال: 12/2026"
+                    required
                     disabled={loading}
                   />
                   <div className={`hint ${judgementHint.ok === true ? "hint--ok" : judgementHint.ok === false ? "hint--bad" : ""}`}>
