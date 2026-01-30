@@ -234,8 +234,7 @@ export default function Dashboard() {
       setMissingError(msg);
       setMissingYears([]);
       setMissingList([]);
-    }
-} finally {
+    } finally {
       setMissingYearsLoading(false);
     }
   }
@@ -692,17 +691,20 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div className="tableWrap" style={{ maxHeight: 320, overflowY: "auto", overflowX: "hidden" }}>
-                <table className="table" style={{ textAlign: "center" }}>
+              <div
+                className="tableWrap"
+                style={{ maxHeight: 320, overflowY: "auto", overflowX: "hidden", display: "flex", justifyContent: "center" }}
+              >
+                <table className="table" style={{ textAlign: "center", width: "fit-content" }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "center" }}>{"\u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0646\u0627\u0642\u0635"}</th>
+                      <th style={{ textAlign: "center", paddingInline: 18 }}>{"\u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0646\u0627\u0642\u0635"}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {missingLoading && (
                       <tr>
-                        <td style={{ color: "var(--muted)", textAlign: "center" }}>
+                        <td style={{ color: "var(--muted)", textAlign: "center", paddingInline: 18 }}>
                           {"\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0645\u064a\u0644..."}
                         </td>
                       </tr>
@@ -711,13 +713,13 @@ export default function Dashboard() {
                     {!missingLoading &&
                       missingList.map((x) => (
                         <tr key={x}>
-                          <td style={{ textAlign: "center" }}>{x}</td>
+                          <td style={{ textAlign: "center", paddingInline: 18 }}>{x}</td>
                         </tr>
                       ))}
 
                     {!missingLoading && missingList.length === 0 && (
                       <tr>
-                        <td style={{ color: "var(--muted)", textAlign: "center" }}>
+                        <td style={{ color: "var(--muted)", textAlign: "center", paddingInline: 18 }}>
                           {"\u0644\u0627 \u062a\u0648\u062c\u062f \u0623\u0631\u0642\u0627\u0645 \u0634\u0627\u063a\u0631\u0629."}
                         </td>
                       </tr>

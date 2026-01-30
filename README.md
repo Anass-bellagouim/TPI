@@ -110,11 +110,12 @@ Il couvre l’ensemble du cycle de développement logiciel :
 ## 🗃️ Base de données (MySQL)
 
 ### Tables principales
-- `users`  
+- `employees`  
 - `documents`  
 - `divisions`  
 - `case_types`  
 - `judges`  
+- `activity_logs`  
 - `personal_access_tokens`  
 
 ---
