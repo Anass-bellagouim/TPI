@@ -54,6 +54,10 @@ export default function Dashboard() {
   const [missingLoading, setMissingLoading] = useState(false);
   const [missingError, setMissingError] = useState("");
   const [missingList, setMissingList] = useState([]);
+  const [missingDivisions, setMissingDivisions] = useState([]);
+  const [missingDivisionId, setMissingDivisionId] = useState("");
+  const [missingCaseTypes, setMissingCaseTypes] = useState([]);
+  const [missingCaseTypeId, setMissingCaseTypeId] = useState("");
 
   async function fetchDashboard() {
     setError("");
@@ -150,10 +154,13 @@ export default function Dashboard() {
     }
   }
 
-  async function fetchMissing(yearValue) {
+  
+  
+  
+  async function fetchMissing(yearValue, opts = {}) {
     const year = String(yearValue || "").trim();
     if (!/^\d{4}$/.test(year)) {
-      setMissingError("Ø§Ù„Ù…Ø±Ø¬Ùˆ Ø§Ø®ØªÙŠØ§Ø± Ø³Ù†Ø© ØµØ­ÙŠØ­Ø©.");
+      setMissingError("المرجو اختيار سنة صحيحة.");
       setMissingList([]);
       return;
     }
@@ -161,14 +168,17 @@ export default function Dashboard() {
     setMissingError("");
     try {
       setMissingLoading(true);
-      const res = await api.get("/documents/judgement-missing", { params: { year } });
+      const params = { year };
+      if (opts.division_id) params.division_id = opts.division_id;
+      if (opts.case_type_id) params.case_type_id = opts.case_type_id;
+      const res = await api.get("/documents/judgement-missing", { params });
       const data = res.data || {};
       setMissingList(Array.isArray(data.missing) ? data.missing : []);
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ù„Ø§Ø¦Ø­Ø© Ø§Ù„Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù†Ø§Ù‚ØµØ©.";
+        "تعذر جلب لائحة الأرقام الناقصة.";
       setMissingError(msg);
       setMissingList([]);
     } finally {
@@ -176,34 +186,71 @@ export default function Dashboard() {
     }
   }
 
-  async function openMissing() {
-    setMissingOpen(true);
+  async function loadMissingDivisions() {
+    try {
+      const res = await api.get("/lookups/divisions", { params: { active: 1 } });
+      const data = res.data?.data || [];
+      setMissingDivisions(Array.isArray(data) ? data : []);
+    } catch {
+      setMissingDivisions([]);
+    }
+  }
+
+  async function loadMissingCaseTypes(divisionId) {
+    try {
+      const params = { active: 1, q: "" };
+      if (divisionId) params.division_id = divisionId;
+      const res = await api.get("/lookups/case-types", { params });
+      const data = res.data?.data || [];
+      setMissingCaseTypes(Array.isArray(data) ? data : []);
+    } catch {
+      setMissingCaseTypes([]);
+    }
+  }
+
+  async function refreshYearsAndMissing({ division_id = "", case_type_id = "" } = {}) {
     setMissingError("");
     setMissingYearsLoading(true);
     try {
-      const res = await api.get("/documents/judgement-years");
+      const params = {};
+      if (division_id) params.division_id = division_id;
+      if (case_type_id) params.case_type_id = case_type_id;
+      const res = await api.get("/documents/judgement-years", { params });
       const years = Array.isArray(res.data?.years) ? res.data.years : [];
       setMissingYears(years);
       const currentYear = String(new Date().getFullYear());
-      const initial = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
-      setMissingYear(initial);
-      await fetchMissing(initial);
+      const nextYear = years.includes(missingYear) ? missingYear : (years.includes(currentYear) ? currentYear : (years[0] || ""));
+      setMissingYear(nextYear);
+      if (nextYear) {
+        await fetchMissing(nextYear, { division_id, case_type_id });
+      } else {
+        setMissingList([]);
+      }
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ø§Ù„Ø³Ù†ÙˆØ§Øª.";
+        "تعذر جلب السنوات.";
       setMissingError(msg);
       setMissingYears([]);
       setMissingList([]);
-    } finally {
+    }
+} finally {
       setMissingYearsLoading(false);
     }
   }
 
+  async function openMissing() {
+    setMissingOpen(true);
+    setMissingError("");
+    await loadMissingDivisions();
+    await loadMissingCaseTypes(missingDivisionId);
+    await refreshYearsAndMissing({ division_id: missingDivisionId, case_type_id: missingCaseTypeId });
+  }
+
   function handleMissingDownload() {
     const rows = missingList.length ? missingList : [];
-    const content = rows.length ? rows.join("\n") : "Ø§Ù„Ù„Ø§Ø¦Ø­Ø© ÙØ§Ø±ØºØ©.";
+    const content = rows.length ? rows.join("\n") : "اللائحة فارغة.";
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -578,7 +625,7 @@ export default function Dashboard() {
                     onChange={(e) => {
                       const v = e.target.value;
                       setMissingYear(v);
-                      fetchMissing(v);
+                      fetchMissing(v, { division_id: missingDivisionId, case_type_id: missingCaseTypeId });
                     }}
                   >
                     {!missingYearsLoading && missingYears.length === 0 && (
@@ -589,6 +636,50 @@ export default function Dashboard() {
                     {missingYears.map((y) => (
                       <option key={y} value={y}>
                         {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="rowActions" style={{ justifyContent: "flex-start", gap: 10, marginBottom: 12 }}>
+                <div className="field" style={{ minWidth: 220 }}>
+                  <div className="label">{"\u0627\u0644\u0634\u0639\u0628\u0629"}</div>
+                  <select
+                    className="select"
+                    value={missingDivisionId}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      setMissingDivisionId(v);
+                      setMissingCaseTypeId("");
+                      await loadMissingCaseTypes(v);
+                      await refreshYearsAndMissing({ division_id: v, case_type_id: "" });
+                    }}
+                  >
+                    <option value="">{"\u062c\u0645\u064a\u0639 \u0627\u0644\u0634\u0639\u0628"}</option>
+                    {missingDivisions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field" style={{ minWidth: 240 }}>
+                  <div className="label">{"\u0646\u0648\u0639 \u0627\u0644\u0642\u0636\u064a\u0629"}</div>
+                  <select
+                    className="select"
+                    value={missingCaseTypeId}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      setMissingCaseTypeId(v);
+                      await refreshYearsAndMissing({ division_id: missingDivisionId, case_type_id: v });
+                    }}
+                  >
+                    <option value="">{"\u062c\u0645\u064a\u0639 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0642\u0636\u0627\u064a\u0627"}</option>
+                    {missingCaseTypes.map((ct) => (
+                      <option key={ct.id} value={ct.id}>
+                        {ct.name} ({ct.code})
                       </option>
                     ))}
                   </select>

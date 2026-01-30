@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ExtractDocumentTextJob;
 use App\Models\ActivityLog;
 use App\Models\CaseType;
+use App\Models\Division;
 use App\Models\Document;
 use App\Models\Employee;
 use App\Models\Judge;
@@ -102,6 +103,21 @@ class DocumentController extends Controller
             'case_type_id' => ['nullable', 'integer', 'exists:case_types,id'],
             'keyword' => ['nullable', 'string', 'max:255'],
         ]);
+
+        // منع تكرار نفس (رقم الملف + رقم الحكم)
+        $caseNumber = trim((string) ($data['case_number'] ?? ''));
+        $judgementNumber = trim((string) ($data['judgement_number'] ?? ''));
+        if ($caseNumber !== '' && $judgementNumber !== '') {
+            $exists = Document::query()
+                ->where('case_number', $caseNumber)
+                ->where('judgement_number', $judgementNumber)
+                ->exists();
+            if ($exists) {
+                return response()->json([
+                    'message' => 'لا يمكن إنشاء وثيقة بنفس رقم الملف ورقم الحكم.',
+                ], 422);
+            }
+        }
 
         $pdf = $data['pdf'];
         $path = $pdf->store('documents', 'public'); // documents/xxx.pdf
@@ -364,6 +380,22 @@ class DocumentController extends Controller
             'status' => ['nullable', 'string', 'max:50'],
         ]);
 
+        // منع تكرار نفس (رقم الملف + رقم الحكم) مع تجاهل الوثيقة الحالية
+        $caseNumber = trim((string) ($data['case_number'] ?? $doc->case_number ?? ''));
+        $judgementNumber = trim((string) ($data['judgement_number'] ?? $doc->judgement_number ?? ''));
+        if ($caseNumber !== '' && $judgementNumber !== '') {
+            $exists = Document::query()
+                ->where('case_number', $caseNumber)
+                ->where('judgement_number', $judgementNumber)
+                ->where('id', '!=', $doc->id)
+                ->exists();
+            if ($exists) {
+                return response()->json([
+                    'message' => 'لا يمكن تعديل وثيقة بنفس رقم الملف ورقم الحكم.',
+                ], 422);
+            }
+        }
+
         $judge = null;
         if (array_key_exists('judge_id', $data) && !empty($data['judge_id'])) {
             $judge = Judge::find($data['judge_id']);
@@ -500,11 +532,36 @@ class DocumentController extends Controller
             ], 422);
         }
 
-        $rows = Document::query()
+        $divisionId = $request->query('division_id');
+        $caseTypeId = $request->query('case_type_id');
+
+        $query = Document::query()
             ->select(['judgement_number'])
             ->whereNotNull('judgement_number')
-            ->where('judgement_number', 'like', "%/{$year}")
-            ->get();
+            ->where('judgement_number', 'like', "%/{$year}");
+
+        if (!empty($caseTypeId)) {
+            $query->where('case_type_id', $caseTypeId);
+        } elseif (!empty($divisionId)) {
+            $division = Division::find($divisionId);
+            if ($division) {
+                $caseTypeIds = CaseType::query()->where('division_id', $divisionId)->pluck('id')->all();
+                $query->where(function ($q) use ($caseTypeIds, $division) {
+                    if (!empty($caseTypeIds)) {
+                        $q->whereIn('case_type_id', $caseTypeIds);
+                        if (!empty($division->name)) {
+                            $q->orWhere('division', $division->name);
+                        }
+                        return;
+                    }
+                    if (!empty($division->name)) {
+                        $q->where('division', $division->name);
+                    }
+                });
+            }
+        }
+
+        $rows = $query->get();
 
         $seen = [];
         $max = 0;
@@ -540,10 +597,35 @@ class DocumentController extends Controller
      */
     public function judgementYears()
     {
-        $rows = Document::query()
+        $divisionId = request()->query('division_id');
+        $caseTypeId = request()->query('case_type_id');
+
+        $query = Document::query()
             ->select(['judgement_number'])
-            ->whereNotNull('judgement_number')
-            ->get();
+            ->whereNotNull('judgement_number');
+
+        if (!empty($caseTypeId)) {
+            $query->where('case_type_id', $caseTypeId);
+        } elseif (!empty($divisionId)) {
+            $division = Division::find($divisionId);
+            if ($division) {
+                $caseTypeIds = CaseType::query()->where('division_id', $divisionId)->pluck('id')->all();
+                $query->where(function ($q) use ($caseTypeIds, $division) {
+                    if (!empty($caseTypeIds)) {
+                        $q->whereIn('case_type_id', $caseTypeIds);
+                        if (!empty($division->name)) {
+                            $q->orWhere('division', $division->name);
+                        }
+                        return;
+                    }
+                    if (!empty($division->name)) {
+                        $q->where('division', $division->name);
+                    }
+                });
+            }
+        }
+
+        $rows = $query->get();
 
         $years = [];
         foreach ($rows as $r) {
